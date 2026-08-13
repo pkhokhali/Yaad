@@ -138,9 +138,21 @@ export async function listTodayReminders(): Promise<Reminder[]> {
   const database = await getDatabase();
   const rows = await database.getAllAsync<Reminder>(
     `SELECT * FROM reminders
-     WHERE due_at BETWEEN ? AND ?
+     WHERE (is_done = 0 AND due_at <= ?)
+        OR (is_done = 1 AND due_at BETWEEN ? AND ?)
      ORDER BY is_done ASC, due_at ASC`,
-    [start.getTime(), end.getTime()],
+    [end.getTime(), start.getTime(), end.getTime()],
+  );
+  return rows.map(mapRow);
+}
+
+export async function listOpenThrough(endMs: number): Promise<Reminder[]> {
+  const database = await getDatabase();
+  const rows = await database.getAllAsync<Reminder>(
+    `SELECT * FROM reminders
+     WHERE is_done = 0 AND due_at <= ?
+     ORDER BY due_at ASC`,
+    [endMs],
   );
   return rows.map(mapRow);
 }

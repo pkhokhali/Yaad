@@ -5,17 +5,233 @@ import { listRecentReminders } from '@/lib/db/reminders';
 import { ParsedCapture, Reminder } from '@/types';
 
 const PREFIX =
-  /^(remind me to|remind me|remember to|don't forget to|dont forget to|yaad|याद)\s+/i;
+  /^(remind me to|remind me|remember to|don't forget to|dont forget to|yaad|याद|मलाई सम्झाउ|मलाई याद गर|सम्झाउ|सम्झनु|नबिर्स|न बिर्स|लुमंके|लुमनं)\s+/iu;
+
+const WORD_NUMBERS: Record<string, number> = {
+  एक: 1,
+  दुई: 2,
+  दुइ: 2,
+  तीन: 3,
+  चार: 4,
+  पाँच: 5,
+  पांच: 5,
+  छ: 6,
+  सात: 7,
+  आठ: 8,
+  नौ: 9,
+  दश: 10,
+  दस: 10,
+  एघार: 11,
+  बाह्र: 12,
+  तेह्र: 13,
+  चौध: 14,
+  पन्ध्र: 15,
+  सोह्र: 16,
+  सत्र: 17,
+  अठार: 18,
+  उन्नाइस: 19,
+  बीस: 20,
+};
+
+const DEVANAGARI_DIGITS = '०१२३४५६७८९';
+
+function hasWord(text: string, word: string): boolean {
+  const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(
+    `(^|[^\\p{L}\\p{N}])${escaped}(?=[^\\p{L}\\p{N}]|$)`,
+    'iu',
+  ).test(text);
+}
+
+function parseNumeralToken(raw: string): number | null {
+  const t = raw.trim();
+  if (WORD_NUMBERS[t] != null) return WORD_NUMBERS[t];
+  let western = '';
+  for (const ch of t) {
+    const i = DEVANAGARI_DIGITS.indexOf(ch);
+    western += i >= 0 ? String(i) : ch;
+  }
+  if (/^\d+$/.test(western)) return parseInt(western, 10);
+  return null;
+}
+
+type DayPart = 'morning' | 'afternoon' | 'evening' | 'night';
+
+function detectDayPart(text: string): DayPart | null {
+  if (
+    hasWord(text, 'बिहान') ||
+    hasWord(text, 'bihana') ||
+    hasWord(text, 'भलनी') ||
+    hasWord(text, 'morning')
+  ) {
+    return 'morning';
+  }
+  if (
+    hasWord(text, 'दिउँसो') ||
+    hasWord(text, 'दिउसो') ||
+    hasWord(text, 'diuso') ||
+    hasWord(text, 'afternoon')
+  ) {
+    return 'afternoon';
+  }
+  if (
+    hasWord(text, 'बेलुका') ||
+    hasWord(text, 'beluka') ||
+    hasWord(text, 'साँझ') ||
+    hasWord(text, 'sanajh') ||
+    hasWord(text, 'सन्झ्याः') ||
+    hasWord(text, 'evening')
+  ) {
+    return 'evening';
+  }
+  if (
+    hasWord(text, 'राति') ||
+    hasWord(text, 'rati') ||
+    hasWord(text, 'चाः') ||
+    hasWord(text, 'tonight') ||
+    hasWord(text, 'night')
+  ) {
+    return 'night';
+  }
+  return null;
+}
+
+function applyDayPart(hour: number, part: DayPart | null): number {
+  if (hour >= 13) return hour;
+  if (part === 'evening' && hour < 12) return hour + 12;
+  if (part === 'night' && hour < 12 && hour !== 0) return hour + 12;
+  if (part === 'afternoon' && hour > 0 && hour < 7) return hour + 12;
+  if (part === 'morning' && hour === 12) return 12;
+  if (part === 'night' && hour === 12) return 0;
+  return hour;
+}
+
+function defaultHourForPart(part: DayPart): number {
+  switch (part) {
+    case 'morning':
+      return 8;
+    case 'afternoon':
+      return 14;
+    case 'evening':
+      return 18;
+    case 'night':
+      return 21;
+  }
+}
+
+function addDays(date: Date, days: number): void {
+  date.setDate(date.getDate() + days);
+}
+
+/**
+ * Nepali / Newari (and romanized) time phrases that chrono-node does not know.
+ */
+export function parseLocalDueAt(
+  text: string,
+  base = new Date(),
+): { dueAt: Date; matched: boolean; hadClock: boolean } {
+  const due = new Date(base);
+  let matched = false;
+  let hadClock = false;
+
+  if (
+    hasWord(text, 'भोलि') ||
+    hasWord(text, 'bholi') ||
+    hasWord(text, 'कन्हय्')
+  ) {
+    addDays(due, 1);
+    matched = true;
+  } else if (
+    hasWord(text, 'पर्सि') ||
+    hasWord(text, 'parsi') ||
+    hasWord(text, 'पिन्हय्')
+  ) {
+    addDays(due, 2);
+    matched = true;
+  } else if (
+    hasWord(text, 'आज') ||
+    hasWord(text, 'aaja') ||
+    hasWord(text, 'aja') ||
+    hasWord(text, 'थौं')
+  ) {
+    matched = true;
+  }
+
+  const durationMin = text.match(
+    /(\d+|[०-९]+|एक|दुई|दुइ|तीन|चार|पाँच|पांच|छ|सात|आठ|नौ|दश|दस|एघार|बाह्र)\s*(मिनेट|min(?:ute)?s?)\s*(मा)?/iu,
+  );
+  const durationHour = text.match(
+    /(\d+|[०-९]+|एक|दुई|दुइ|तीन|चार|पाँच|पांच|छ|सात|आठ|नौ|दश|दस|एघार|बाह्र)\s*(घण्टा|ghanta|hours?)\s*(मा)?/iu,
+  );
+  const durationDay = text.match(
+    /(\d+|[०-९]+|एक|दुई|दुइ|तीन|चार|पाँच|पांच|छ|सात|आठ|नौ|दश|दस)\s*(दिन|din|दिं)\s*(मा|पछि)?/iu,
+  );
+
+  if (durationMin) {
+    const n = parseNumeralToken(durationMin[1]);
+    if (n != null) {
+      due.setMinutes(due.getMinutes() + n);
+      matched = true;
+      hadClock = true;
+    }
+  } else if (durationHour) {
+    const n = parseNumeralToken(durationHour[1]);
+    if (n != null) {
+      due.setHours(due.getHours() + n);
+      matched = true;
+      hadClock = true;
+    }
+  } else if (durationDay) {
+    const n = parseNumeralToken(durationDay[1]);
+    if (n != null) {
+      addDays(due, n);
+      matched = true;
+    }
+  }
+
+  const clock = text.match(
+    /(\d{1,2}|[०-९]{1,2}|एक|दुई|दुइ|तीन|चार|पाँच|पांच|छ|सात|आठ|नौ|दश|दस|एघार|बाह्र)\s*(?:[:.](\d{2}|[०-९]{2}))?\s*(बजे|baje)/iu,
+  );
+  const dayPart = detectDayPart(text);
+
+  if (clock) {
+    let hour = parseNumeralToken(clock[1]);
+    const minute = clock[2] ? parseNumeralToken(clock[2]) ?? 0 : 0;
+    if (hour != null && hour >= 0 && hour <= 23) {
+      hour = applyDayPart(hour, dayPart);
+      due.setHours(hour, minute, 0, 0);
+      matched = true;
+      hadClock = true;
+    }
+  } else if (dayPart && !durationMin && !durationHour) {
+    due.setHours(defaultHourForPart(dayPart), 0, 0, 0);
+    matched = true;
+    hadClock = true;
+  }
+
+  if (matched && due.getTime() <= base.getTime() - 30_000) {
+    addDays(due, 1);
+  }
+
+  return { dueAt: due, matched, hadClock };
+}
+
+function stripLocalPhrases(title: string): string {
+  return title.replace(
+    /(?:आज|भोलि|पर्सि|बिहान|दिउँसो|दिउसो|बेलुका|साँझ|राति|थौं|कन्हय्|पिन्हय्|भलनी|सन्झ्याः|चाः|aaja|aja|bholi|parsi|bihana|beluka|rati|diuso|\d+[०-९]*\s*(?:बजे|baje|मिनेट(?:मा)?|घण्टा(?:मा)?|दिन(?:मा)?|min(?:ute)?s?|hours?|din)|[०-९]+\s*(?:बजे|मिनेट(?:मा)?|घण्टा(?:मा)?|दिन(?:मा)?)|(?:एक|दुई|दुइ|तीन|चार|पाँच|पांच|छ|सात|आठ|नौ|दश|दस|एघार|बाह्र)\s*(?:बजे|मिनेट(?:मा)?|घण्टा(?:मा)?))/giu,
+    '',
+  );
+}
 
 function cleanTitle(text: string, dueAt: Date): string {
   let title = text.replace(PREFIX, '').trim();
 
-  // Strip common temporal phrases chrono already consumed
-  title = title
-    .replace(
+  title = stripLocalPhrases(
+    title.replace(
       /\b(today|tomorrow|tonight|this (morning|afternoon|evening|week)|next (week|monday|tuesday|wednesday|thursday|friday|saturday|sunday)|at \d{1,2}(:\d{2})?\s*(am|pm)?|in \d+\s*(minutes?|hours?|days?)|on \w+day)\b/gi,
       '',
-    )
+    ),
+  )
     .replace(/\s{2,}/g, ' ')
     .replace(/^[\s,.-]+|[\s,.-]+$/g, '')
     .trim();
@@ -24,7 +240,6 @@ function cleanTitle(text: string, dueAt: Date): string {
     title = text.replace(PREFIX, '').trim() || 'Reminder';
   }
 
-  // Silence unused param warning while keeping signature for future refinement
   void dueAt;
   return title.charAt(0).toUpperCase() + title.slice(1);
 }
@@ -61,7 +276,14 @@ export async function resolveReference(
   const ref =
     /\b(the .+? thing|that .+|the same .+|again)\b/i.exec(text)?.[0] ??
     null;
-  if (!ref && !/\bagain\b/i.test(text)) return null;
+  if (
+    !ref &&
+    !/\bagain\b/i.test(text) &&
+    !hasWord(text, 'फेरि') &&
+    !hasWord(text, 'लिसे')
+  ) {
+    return null;
+  }
 
   const recent = await listRecentReminders(40);
   let best: Reminder | null = null;
@@ -82,11 +304,31 @@ export async function parseCaptureText(
 ): Promise<ParsedCapture> {
   const text = rawText.trim();
   const results = chrono.parse(text, new Date(), { forwardDate: true });
-  const dueAt = results[0]?.start?.date() ?? defaultDueAt();
+  const chronoDate = results[0]?.start?.date();
+  const local = parseLocalDueAt(text);
+
+  let dueAt: Date;
+  if (local.matched) {
+    dueAt = local.dueAt;
+    if (
+      !local.hadClock &&
+      chronoDate &&
+      results[0]?.start?.isCertain('hour')
+    ) {
+      dueAt.setHours(chronoDate.getHours(), chronoDate.getMinutes(), 0, 0);
+    }
+  } else {
+    dueAt = chronoDate ?? defaultDueAt();
+  }
 
   let title = cleanTitle(text, dueAt);
   const referenced = await resolveReference(text);
-  if (referenced && /\b(again|same|that|the .+ thing)\b/i.test(text)) {
+  if (
+    referenced &&
+    (/\b(again|same|that|the .+ thing)\b/i.test(text) ||
+      hasWord(text, 'फेरि') ||
+      hasWord(text, 'लिसे'))
+  ) {
     title = referenced.title;
   }
 
@@ -95,5 +337,9 @@ export async function parseCaptureText(
     dueAt,
     category: suggestCategory(text) || referenced?.category || 'general',
     rawText: text,
+    confident:
+      title.trim().length >= 3 &&
+      title.trim().toLowerCase() !== 'reminder' &&
+      (local.matched || Boolean(chronoDate)),
   };
 }

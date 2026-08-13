@@ -1,54 +1,81 @@
 import * as Notifications from 'expo-notifications';
-import { router, Stack } from 'expo-router';
+import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { View } from 'react-native';
 
+import { MemorySplash } from '@/components/MemorySplash';
 import { colors } from '@/constants/theme';
 import { getDatabase } from '@/lib/db/database';
+import { announceReminder } from '@/lib/services/announce';
+import { initializeAds } from '@/lib/ads/init';
+import { handleNotificationResponse } from '@/lib/services/notificationActions';
 import { ensureNotificationPermissions } from '@/lib/services/notifications';
 import { useReminderStore } from '@/store/useReminderStore';
+import { useSettingsStore } from '@/store/useSettingsStore';
 
 export { ErrorBoundary } from 'expo-router';
 
 SplashScreen.preventAutoHideAsync();
 
-function useNotificationNavigation() {
+function useNotificationBridge() {
   useEffect(() => {
-    const sub = Notifications.addNotificationResponseReceivedListener(
+    const responseSub = Notifications.addNotificationResponseReceivedListener(
       (response) => {
-        const reminderId = response.notification.request.content.data
-          ?.reminderId as string | undefined;
-        if (reminderId) {
-          router.push(`/reminder/${reminderId}`);
+        handleNotificationResponse(response).catch(() => undefined);
+      },
+    );
+
+    const receivedSub = Notifications.addNotificationReceivedListener(
+      (notification) => {
+        const settings = useSettingsStore.getState().getSettings();
+        if (!settings.speakAlerts) return;
+        const title = notification.request.content.title;
+        const body = notification.request.content.body;
+        const spoken = [title, body].filter(Boolean).join('. ');
+        if (spoken) {
+          announceReminder(spoken, settings.voiceLanguage);
         }
       },
     );
-    return () => sub.remove();
+
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (!response) return;
+      const raw = response.notification.date;
+      const ts = raw < 1e12 ? raw * 1000 : raw;
+      if (Date.now() - ts < 12_000) {
+        handleNotificationResponse(response).catch(() => undefined);
+      }
+    });
+
+    return () => {
+      responseSub.remove();
+      receivedSub.remove();
+    };
   }, []);
 }
 
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
+  const [splashDone, setSplashDone] = useState(false);
   const bootstrap = useReminderStore((s) => s.bootstrap);
-  useNotificationNavigation();
+  useNotificationBridge();
 
   useEffect(() => {
     (async () => {
       try {
         await getDatabase();
         await ensureNotificationPermissions();
+        await initializeAds();
         await bootstrap();
       } finally {
         setReady(true);
-        SplashScreen.hideAsync();
       }
     })();
   }, [bootstrap]);
 
-  if (!ready) {
-    return <View style={{ flex: 1, backgroundColor: colors.background }} />;
+  if (!ready || !splashDone) {
+    return <MemorySplash ready={ready} onFinished={() => setSplashDone(true)} />;
   }
 
   return (

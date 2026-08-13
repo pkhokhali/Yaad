@@ -32,7 +32,8 @@
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
         "USE_EXACT_ALARM",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "com.google.android.gms.permission.AD_ID"
       ],
       "blockedPermissions": [
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -75,7 +76,15 @@
           "microphonePermission": "Yaad needs the microphone to capture spoken reminders.",
           "speechRecognitionPermission": "Yaad uses speech recognition so you can capture reminders by voice."
         }
-      ]
+      ],
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-3940256099942544~3347511713",
+          "iosAppId": "ca-app-pub-3940256099942544~1458002511"
+        }
+      ],
+      "./plugins/withPlayServicesAdsPin"
     ],
     "experiments": {
       "typedRoutes": true
@@ -83,5 +92,9 @@
     "extra": {
       "router": {}
     }
+  },
+  "react-native-google-mobile-ads": {
+    "android_app_id": "ca-app-pub-3940256099942544~3347511713",
+    "ios_app_id": "ca-app-pub-3940256099942544~1458002511"
   }
 }

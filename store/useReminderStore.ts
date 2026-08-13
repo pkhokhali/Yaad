@@ -16,9 +16,11 @@ import {
   completeWithRepeat,
   findNearestUpcoming,
   maybeAdaptUrgency,
+  refreshEveningSweep,
   scheduleReminderNotifications,
 } from '@/lib/services/notifications';
 import { getStreak, recordActivity } from '@/lib/services/streak';
+import { useSettingsStore } from '@/store/useSettingsStore';
 import { AppSettings, Reminder } from '@/types';
 
 type ReminderState = {
@@ -68,6 +70,7 @@ export const useReminderStore = create<ReminderState>((set, get) => ({
       loading: false,
       ready: true,
     });
+    await refreshEveningSweep(useSettingsStore.getState().getSettings());
   },
 
   refresh: async () => {
@@ -110,6 +113,7 @@ export const useReminderStore = create<ReminderState>((set, get) => ({
     } else {
       await markDone(id);
       await cancelAllForReminder(id);
+      await refreshEveningSweep(settings);
     }
     await recordActivity();
     await get().refresh();
@@ -118,6 +122,7 @@ export const useReminderStore = create<ReminderState>((set, get) => ({
   removeReminder: async (id) => {
     await cancelAllForReminder(id);
     await deleteReminder(id);
+    await refreshEveningSweep(useSettingsStore.getState().getSettings());
     await get().refresh();
   },
 

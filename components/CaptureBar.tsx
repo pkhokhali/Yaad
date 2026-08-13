@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import {
   ExpoSpeechRecognitionModule,
   useSpeechRecognitionEvent,
@@ -16,18 +17,71 @@ import {
 } from 'react-native';
 
 import { colors, radii, spacing } from '@/constants/theme';
+import { parseCaptureText } from '@/lib/services/parser';
+import {
+  getVoiceLanguageOption,
+  nextVoiceLanguage,
+  resolveSpeechLocale,
+} from '@/lib/services/voiceLanguages';
+import { useReminderStore } from '@/store/useReminderStore';
+import { useSettingsStore } from '@/store/useSettingsStore';
 
 type Props = {
   onSubmitText: (text: string) => void;
 };
 
+const PLACEHOLDERS = {
+  en: 'type a reminder...',
+  ne: 'रिमाइन्डर लेख्नुहोस्...',
+  new: 'लुमंकेगु च्वयादिसँ...',
+} as const;
+
 export function CaptureBar({ onSubmitText }: Props) {
   const router = useRouter();
+  const voiceLanguage = useSettingsStore((s) => s.voiceLanguage ?? 'en');
+  const setVoiceLanguage = useSettingsStore((s) => s.setVoiceLanguage);
+  const getSettings = useSettingsStore((s) => s.getSettings);
+  const addReminder = useReminderStore((s) => s.addReminder);
+  const langOption = getVoiceLanguageOption(voiceLanguage);
+
   const [text, setText] = useState('');
   const [listening, setListening] = useState(false);
   const [micHint, setMicHint] = useState<string | null>(null);
   const interimRef = useRef('');
   const holdActive = useRef(false);
+
+  const handleVoiceCapture = useCallback(
+    async (finalText: string) => {
+      try {
+        const parsed = await parseCaptureText(finalText);
+        if (parsed.confident) {
+          await addReminder(
+            {
+              title: parsed.title,
+              notes: parsed.rawText,
+              due_at: parsed.dueAt.getTime(),
+              category: parsed.category,
+            },
+            getSettings(),
+          );
+          await Haptics.notificationAsync(
+            Haptics.NotificationFeedbackType.Success,
+          );
+          setMicHint(`Saved · ${parsed.title}`);
+          return;
+        }
+      } catch {
+        // Fall through to the confirm screen
+      }
+      router.push({
+        pathname: '/add',
+        params: { draft: finalText, fromVoice: '1' },
+      });
+    },
+    [addReminder, getSettings, router],
+  );
+  const handleVoiceCaptureRef = useRef(handleVoiceCapture);
+  handleVoiceCaptureRef.current = handleVoiceCapture;
 
   useSpeechRecognitionEvent('result', (event) => {
     const transcript = event.results?.[0]?.transcript?.trim();
@@ -41,12 +95,11 @@ export function CaptureBar({ onSubmitText }: Props) {
     setListening(false);
     const finalText = interimRef.current.trim();
     if (finalText && holdActive.current === false) {
-      router.push({
-        pathname: '/add',
-        params: { draft: finalText, fromVoice: '1' },
-      });
+      handleVoiceCaptureRef.current(finalText);
       setText('');
       interimRef.current = '';
+    } else if (!finalText) {
+      setMicHint(null);
     }
   });
 
@@ -62,6 +115,12 @@ export function CaptureBar({ onSubmitText }: Props) {
     setText('');
   }, [text, onSubmitText]);
 
+  const cycleLanguage = useCallback(() => {
+    if (listening) return;
+    setMicHint(null);
+    setVoiceLanguage(nextVoiceLanguage(voiceLanguage));
+  }, [listening, setVoiceLanguage, voiceLanguage]);
+
   const startListening = useCallback(async () => {
     setMicHint(null);
     holdActive.current = true;
@@ -73,19 +132,26 @@ export function CaptureBar({ onSubmitText }: Props) {
         holdActive.current = false;
         return;
       }
+      const resolved = await resolveSpeechLocale(voiceLanguage);
+      if (resolved.usedFallback && voiceLanguage === 'new') {
+        setMicHint('Newari isn’t on this phone — listening in Nepali');
+      } else {
+        setMicHint(langOption.hint);
+      }
       interimRef.current = '';
       setListening(true);
       ExpoSpeechRecognitionModule.start({
-        lang: 'en-US',
+        lang: resolved.locale,
         interimResults: true,
         continuous: false,
+        contextualStrings: langOption.contextualStrings,
       });
     } catch {
       holdActive.current = false;
       setListening(false);
       setMicHint('Hold mic in a native build, or type instead');
     }
-  }, []);
+  }, [langOption, voiceLanguage]);
 
   const stopListening = useCallback(() => {
     holdActive.current = false;
@@ -95,15 +161,12 @@ export function CaptureBar({ onSubmitText }: Props) {
       setListening(false);
       const finalText = interimRef.current.trim() || text.trim();
       if (finalText) {
-        router.push({
-          pathname: '/add',
-          params: { draft: finalText, fromVoice: '1' },
-        });
+        handleVoiceCaptureRef.current(finalText);
         setText('');
         interimRef.current = '';
       }
     }
-  }, [router, text]);
+  }, [text]);
 
   return (
     <View style={styles.wrap}>
@@ -111,7 +174,7 @@ export function CaptureBar({ onSubmitText }: Props) {
       <View style={styles.bar}>
         <TextInput
           style={styles.input}
-          placeholder="type a reminder..."
+          placeholder={PLACEHOLDERS[voiceLanguage]}
           placeholderTextColor={colors.textSubtle}
           value={text}
           onChangeText={setText}
@@ -129,6 +192,14 @@ export function CaptureBar({ onSubmitText }: Props) {
           </Pressable>
         ) : null}
         <Pressable
+          onPress={cycleLanguage}
+          style={[styles.langChip, listening && styles.langChipDisabled]}
+          accessibilityLabel={`Voice language ${langOption.nativeLabel}. Tap to change.`}
+          hitSlop={6}
+        >
+          <Text style={styles.langChipText}>{langOption.short}</Text>
+        </Pressable>
+        <Pressable
           onPressIn={startListening}
           onPressOut={stopListening}
           style={({ pressed }) => [
@@ -136,7 +207,7 @@ export function CaptureBar({ onSubmitText }: Props) {
             listening && styles.micActive,
             pressed && styles.micPressed,
           ]}
-          accessibilityLabel="Hold to speak a reminder"
+          accessibilityLabel={`Hold to speak a reminder in ${langOption.nativeLabel}`}
         >
           {listening ? (
             <ActivityIndicator color="#fff" size="small" />
@@ -190,6 +261,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.accent,
+  },
+  langChip: {
+    minWidth: 36,
+    height: 28,
+    paddingHorizontal: 8,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.accentSoft,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  langChipDisabled: {
+    opacity: 0.5,
+  },
+  langChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.accent,
   },
   mic: {
     width: 40,

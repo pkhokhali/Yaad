@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AdBanner } from '@/components/AdBanner';
 import { CaptureBar } from '@/components/CaptureBar';
 import { ReminderCard } from '@/components/ReminderCard';
 import { StreakBadge } from '@/components/StreakBadge';
@@ -90,6 +91,7 @@ export default function HomeScreen() {
         />
       )}
 
+      <AdBanner />
       <CaptureBar onSubmitText={onCapture} />
     </SafeAreaView>
   );

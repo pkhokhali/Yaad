@@ -2,6 +2,7 @@ export type Category = 'call' | 'document' | 'repeat' | 'general';
 export type RepeatRule = 'daily' | 'weekly' | 'after_visit' | null;
 export type UrgencyCurve = 'standard' | 'escalating';
 export type NotificationTier = 'nudge' | 'alert';
+export type VoiceLanguage = 'en' | 'ne' | 'new';
 
 export interface Reminder {
   id: string;
@@ -29,6 +30,8 @@ export interface AppSettings {
   defaultUrgencyCurve: UrgencyCurve;
   notificationSound: 'default' | 'subtle' | 'prominent';
   quietHoursEnabled: boolean;
+  voiceLanguage: VoiceLanguage;
+  speakAlerts: boolean;
 }
 
 export interface ParsedCapture {
@@ -36,6 +39,7 @@ export interface ParsedCapture {
   dueAt: Date;
   category: Category;
   rawText: string;
+  confident: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -44,4 +48,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   defaultUrgencyCurve: 'standard',
   notificationSound: 'default',
   quietHoursEnabled: true,
+  voiceLanguage: 'en',
+  speakAlerts: true,
 };

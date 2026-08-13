@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, radii, spacing } from '@/constants/theme';
+import { VOICE_LANGUAGE_OPTIONS } from '@/lib/services/voiceLanguages';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { UrgencyCurve } from '@/types';
 
@@ -27,12 +28,16 @@ export default function SettingsScreen() {
   const quietHoursEnd = useSettingsStore((s) => s.quietHoursEnd);
   const defaultUrgencyCurve = useSettingsStore((s) => s.defaultUrgencyCurve);
   const notificationSound = useSettingsStore((s) => s.notificationSound);
+  const voiceLanguage = useSettingsStore((s) => s.voiceLanguage ?? 'en');
   const setQuietHoursEnabled = useSettingsStore((s) => s.setQuietHoursEnabled);
   const setQuietHours = useSettingsStore((s) => s.setQuietHours);
   const setDefaultUrgencyCurve = useSettingsStore(
     (s) => s.setDefaultUrgencyCurve,
   );
   const setNotificationSound = useSettingsStore((s) => s.setNotificationSound);
+  const setVoiceLanguage = useSettingsStore((s) => s.setVoiceLanguage);
+  const speakAlerts = useSettingsStore((s) => s.speakAlerts ?? true);
+  const setSpeakAlerts = useSettingsStore((s) => s.setSpeakAlerts);
 
   const curves = useMemo(
     () =>
@@ -126,6 +131,40 @@ export default function SettingsScreen() {
           ) : null}
         </View>
 
+        <Text style={styles.section}>Voice language</Text>
+        <View style={styles.card}>
+          {VOICE_LANGUAGE_OPTIONS.map((lang, idx, arr) => (
+            <Pressable
+              key={lang.value}
+              onPress={() => setVoiceLanguage(lang.value)}
+              style={[
+                styles.choice,
+                idx < arr.length - 1 && styles.choiceBorder,
+              ]}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.rowTitle}>
+                  {lang.nativeLabel}
+                  {lang.nativeLabel !== lang.label ? ` · ${lang.label}` : ''}
+                </Text>
+                <Text style={styles.rowHint}>{lang.hint}</Text>
+              </View>
+              <View
+                style={[
+                  styles.radio,
+                  voiceLanguage === lang.value && styles.radioOn,
+                ]}
+              />
+            </Pressable>
+          ))}
+          {voiceLanguage === 'new' ? (
+            <Text style={styles.fallbackNote}>
+              Most phones have no Newari speech model. Yaad will listen in
+              Nepali and still parse नेपाल भाषा time words in the transcript.
+            </Text>
+          ) : null}
+        </View>
+
         <Text style={styles.section}>Default urgency</Text>
         <View style={styles.card}>
           {curves.map((c, idx) => (
@@ -177,6 +216,30 @@ export default function SettingsScreen() {
               />
             </Pressable>
           ))}
+          <View
+            style={[
+              styles.choice,
+              {
+                marginTop: spacing.sm,
+                borderTopWidth: StyleSheet.hairlineWidth,
+                borderTopColor: colors.borderHairline,
+                paddingTop: spacing.lg,
+              },
+            ]}
+          >
+            <View style={{ flex: 1, paddingRight: spacing.md }}>
+              <Text style={styles.rowTitle}>Speak alerts</Text>
+              <Text style={styles.rowHint}>
+                Yaad reads the reminder aloud when the app is open. From the
+                lock screen, use Done, Snooze, Call, or Voice.
+              </Text>
+            </View>
+            <Switch
+              value={speakAlerts}
+              onValueChange={setSpeakAlerts}
+              trackColor={{ true: colors.accent, false: colors.border }}
+            />
+          </View>
         </View>
 
         <Text style={styles.footer}>
@@ -270,6 +333,12 @@ const styles = StyleSheet.create({
   radioOn: {
     borderColor: colors.accent,
     backgroundColor: colors.accent,
+  },
+  fallbackNote: {
+    marginTop: spacing.md,
+    fontSize: 12,
+    color: colors.textMuted,
+    lineHeight: 18,
   },
   footer: {
     marginTop: spacing.xxxl,

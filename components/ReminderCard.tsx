@@ -11,10 +11,17 @@ type Props = {
 };
 
 function formatDue(ms: number): string {
-  return new Date(ms).toLocaleTimeString([], {
+  const due = new Date(ms);
+  const time = due.toLocaleTimeString([], {
     hour: 'numeric',
     minute: '2-digit',
   });
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (due.getTime() < today.getTime()) {
+    return `Overdue · ${due.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })} ${time}`;
+  }
+  return time;
 }
 
 export function ReminderCard({ reminder, highlighted = false, onPress }: Props) {
