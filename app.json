@@ -1,12 +1,13 @@
 {
   "expo": {
     "name": "Yaad",
-    "slug": "Yaad",
+    "slug": "yaad-memory",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "yaad",
     "userInterfaceStyle": "light",
+    "primaryColor": "#C45C26",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.pkhokhali.yaad",
@@ -17,6 +18,7 @@
     },
     "android": {
       "package": "com.pkhokhali.yaad",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#F7F8FA",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -28,9 +30,21 @@
         "SCHEDULE_EXACT_ALARM",
         "POST_NOTIFICATIONS",
         "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE"
+        "VIBRATE",
+        "USE_EXACT_ALARM",
+        "android.permission.RECORD_AUDIO"
       ],
-      "predictiveBackGestureEnabled": false
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ],
+      "predictiveBackGestureEnabled": false,
+      "softwareKeyboardLayoutMode": "resize",
+      "allowBackup": true,
+      "label": "Yaad"
     },
     "web": {
       "bundler": "metro",
@@ -65,6 +79,9 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {}
     }
   }
 }

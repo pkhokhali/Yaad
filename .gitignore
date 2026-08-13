@@ -40,6 +40,11 @@ yarn-error.*
 /ios
 /android
 
+# local build artifacts
+/dist/
+*.apk
+*.aab
+
 # editor / agent
 .claude/
 .cursor/
