@@ -1,56 +1,81 @@
-import { useFonts } from 'expo-font';
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import * as Notifications from 'expo-notifications';
+import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
-import 'react-native-reanimated';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
+import { View } from 'react-native';
 
-import { useColorScheme } from '@/components/useColorScheme';
+import { colors } from '@/constants/theme';
+import { getDatabase } from '@/lib/db/database';
+import { ensureNotificationPermissions } from '@/lib/services/notifications';
+import { useReminderStore } from '@/store/useReminderStore';
 
-export {
-  // Catch any errors thrown by the Layout component.
-  ErrorBoundary,
-} from 'expo-router';
+export { ErrorBoundary } from 'expo-router';
 
-export const unstable_settings = {
-  // Ensure that reloading on `/modal` keeps a back button present.
-  initialRouteName: '(tabs)',
-};
-
-// Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
-export default function RootLayout() {
-  const [loaded, error] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
-
-  // Expo Router uses Error Boundaries to catch errors in the navigation tree.
+function useNotificationNavigation() {
   useEffect(() => {
-    if (error) throw error;
-  }, [error]);
-
-  useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded]);
-
-  if (!loaded) {
-    return null;
-  }
-
-  return <RootLayoutNav />;
+    const sub = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        const reminderId = response.notification.request.content.data
+          ?.reminderId as string | undefined;
+        if (reminderId) {
+          router.push(`/reminder/${reminderId}`);
+        }
+      },
+    );
+    return () => sub.remove();
+  }, []);
 }
 
-function RootLayoutNav() {
-  const colorScheme = useColorScheme();
+export default function RootLayout() {
+  const [ready, setReady] = useState(false);
+  const bootstrap = useReminderStore((s) => s.bootstrap);
+  useNotificationNavigation();
+
+  useEffect(() => {
+    (async () => {
+      try {
+        await getDatabase();
+        await ensureNotificationPermissions();
+        await bootstrap();
+      } finally {
+        setReady(true);
+        SplashScreen.hideAsync();
+      }
+    })();
+  }, [bootstrap]);
+
+  if (!ready) {
+    return <View style={{ flex: 1, backgroundColor: colors.background }} />;
+  }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
+    <>
+      <StatusBar style="dark" />
+      <Stack
+        screenOptions={{
+          headerShadowVisible: false,
+          headerStyle: { backgroundColor: colors.background },
+          headerTintColor: colors.accent,
+          headerTitleStyle: { color: colors.text, fontWeight: '600' },
+          contentStyle: { backgroundColor: colors.background },
+        }}
+      >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+        <Stack.Screen
+          name="add"
+          options={{
+            presentation: 'modal',
+            title: 'New reminder',
+          }}
+        />
+        <Stack.Screen
+          name="reminder/[id]"
+          options={{ title: 'Reminder' }}
+        />
       </Stack>
-    </ThemeProvider>
+    </>
   );
 }

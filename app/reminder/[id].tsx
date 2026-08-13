@@ -1,0 +1,410 @@
+import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker, {
+  DateTimePickerEvent,
+} from '@react-native-community/datetimepicker';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+
+import { CategoryChip } from '@/components/CategoryChip';
+import { colors, radii, spacing } from '@/constants/theme';
+import { useReminderStore } from '@/store/useReminderStore';
+import { useSettingsStore } from '@/store/useSettingsStore';
+import {
+  Category,
+  Reminder,
+  RepeatRule,
+  UrgencyCurve,
+} from '@/types';
+
+const CATEGORIES: Category[] = ['call', 'document', 'repeat', 'general'];
+const REPEATS: { value: RepeatRule; label: string }[] = [
+  { value: null, label: 'None' },
+  { value: 'daily', label: 'Daily' },
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'after_visit', label: 'After visit' },
+];
+const CURVES: { value: UrgencyCurve; label: string }[] = [
+  { value: 'standard', label: 'Standard' },
+  { value: 'escalating', label: 'Escalating' },
+];
+
+export default function ReminderDetailScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const getById = useReminderStore((s) => s.getById);
+  const editReminder = useReminderStore((s) => s.editReminder);
+  const completeReminder = useReminderStore((s) => s.completeReminder);
+  const removeReminder = useReminderStore((s) => s.removeReminder);
+  const snooze = useReminderStore((s) => s.snooze);
+  const getSettings = useSettingsStore((s) => s.getSettings);
+
+  const [reminder, setReminder] = useState<Reminder | null>(null);
+  const [title, setTitle] = useState('');
+  const [notes, setNotes] = useState('');
+  const [dueAt, setDueAt] = useState(new Date());
+  const [category, setCategory] = useState<Category>('general');
+  const [repeatRule, setRepeatRule] = useState<RepeatRule>(null);
+  const [urgency, setUrgency] = useState<UrgencyCurve>('standard');
+  const [showPicker, setShowPicker] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!id) return;
+    const r = await getById(id);
+    if (!r) {
+      router.back();
+      return;
+    }
+    setReminder(r);
+    setTitle(r.title);
+    setNotes(r.notes ?? '');
+    setDueAt(new Date(r.due_at));
+    setCategory(r.category);
+    setRepeatRule(r.repeat_rule);
+    setUrgency(r.urgency_curve);
+  }, [id, getById, router]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const onChangeDate = (_: DateTimePickerEvent, date?: Date) => {
+    if (Platform.OS === 'android') setShowPicker(false);
+    if (date) setDueAt(date);
+  };
+
+  const save = async () => {
+    if (!id || !title.trim()) return;
+    setBusy(true);
+    try {
+      await editReminder(
+        id,
+        {
+          title: title.trim(),
+          notes: notes.trim() || null,
+          due_at: dueAt.getTime(),
+          category,
+          repeat_rule: repeatRule,
+          urgency_curve: urgency,
+        },
+        getSettings(),
+      );
+      router.back();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onDone = async () => {
+    if (!id) return;
+    setBusy(true);
+    try {
+      await completeReminder(id, getSettings());
+      router.back();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onSnooze = async (minutes: number) => {
+    if (!id) return;
+    setBusy(true);
+    try {
+      await snooze(id, minutes, getSettings());
+      router.back();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onDelete = () => {
+    if (!id) return;
+    Alert.alert('Delete reminder?', 'This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          await removeReminder(id);
+          router.back();
+        },
+      },
+    ]);
+  };
+
+  if (!reminder) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator color={colors.accent} />
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+    >
+      <View style={styles.card}>
+        <View style={styles.titleRow}>
+          <CategoryChip category={category} filled />
+          <TextInput
+            style={styles.titleInput}
+            value={title}
+            onChangeText={setTitle}
+          />
+        </View>
+
+        <Pressable style={styles.row} onPress={() => setShowPicker(true)}>
+          <Ionicons name="time-outline" size={18} color={colors.accent} />
+          <Text style={styles.rowText}>
+            {dueAt.toLocaleString([], {
+              weekday: 'short',
+              month: 'short',
+              day: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit',
+            })}
+          </Text>
+        </Pressable>
+        {showPicker ? (
+          <DateTimePicker
+            value={dueAt}
+            mode="datetime"
+            onChange={onChangeDate}
+          />
+        ) : null}
+
+        <Text style={styles.label}>Category</Text>
+        <View style={styles.chips}>
+          {CATEGORIES.map((c) => (
+            <Pressable
+              key={c}
+              onPress={() => setCategory(c)}
+              style={[styles.chipBtn, category === c && styles.chipSelected]}
+            >
+              <CategoryChip category={c} filled={category === c} size={26} />
+              <Text style={styles.chipLabel}>{c}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Text style={styles.label}>Repeat</Text>
+        <View style={styles.chips}>
+          {REPEATS.map((r) => (
+            <Pressable
+              key={String(r.value)}
+              onPress={() => setRepeatRule(r.value)}
+              style={[
+                styles.option,
+                repeatRule === r.value && styles.optionSelected,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.optionText,
+                  repeatRule === r.value && styles.optionTextSelected,
+                ]}
+              >
+                {r.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Text style={styles.label}>Urgency</Text>
+        <View style={styles.chips}>
+          {CURVES.map((c) => (
+            <Pressable
+              key={c.value}
+              onPress={() => setUrgency(c.value)}
+              style={[
+                styles.option,
+                urgency === c.value && styles.optionSelected,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.optionText,
+                  urgency === c.value && styles.optionTextSelected,
+                ]}
+              >
+                {c.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Text style={styles.label}>Notes</Text>
+        <TextInput
+          style={styles.notes}
+          value={notes}
+          onChangeText={setNotes}
+          multiline
+          placeholder="Optional notes"
+          placeholderTextColor={colors.textSubtle}
+        />
+      </View>
+
+      <View style={styles.actions}>
+        {!reminder.is_done ? (
+          <>
+            <Pressable style={styles.primary} onPress={onDone} disabled={busy}>
+              <Text style={styles.primaryText}>Mark done</Text>
+            </Pressable>
+            <View style={styles.snoozeRow}>
+              {[10, 30, 60].map((m) => (
+                <Pressable
+                  key={m}
+                  style={styles.snooze}
+                  onPress={() => onSnooze(m)}
+                  disabled={busy}
+                >
+                  <Text style={styles.snoozeText}>+{m}m</Text>
+                </Pressable>
+              ))}
+            </View>
+          </>
+        ) : null}
+
+        <Pressable style={styles.secondary} onPress={save} disabled={busy}>
+          <Text style={styles.secondaryText}>Save changes</Text>
+        </Pressable>
+        <Pressable style={styles.danger} onPress={onDelete}>
+          <Text style={styles.dangerText}>Delete</Text>
+        </Pressable>
+      </View>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
+  content: { padding: spacing.lg, paddingBottom: spacing.xxxl },
+  loading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background,
+  },
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: radii.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.borderHairline,
+    padding: spacing.lg,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  titleInput: {
+    flex: 1,
+    fontSize: 20,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  rowText: { fontSize: 16, color: colors.text, fontWeight: '500' },
+  label: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSubtle,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: spacing.sm,
+    marginTop: spacing.md,
+  },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  chipBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: radii.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  chipSelected: {
+    borderColor: colors.accent,
+    backgroundColor: colors.accentSoft,
+  },
+  chipLabel: {
+    fontSize: 13,
+    color: colors.textMuted,
+    textTransform: 'capitalize',
+  },
+  option: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: radii.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  optionSelected: {
+    borderColor: colors.accent,
+    backgroundColor: colors.accentSoft,
+  },
+  optionText: { fontSize: 13, color: colors.textMuted },
+  optionTextSelected: { color: colors.text, fontWeight: '600' },
+  notes: {
+    minHeight: 72,
+    fontSize: 15,
+    color: colors.text,
+    textAlignVertical: 'top',
+  },
+  actions: { marginTop: spacing.xl, gap: spacing.sm },
+  primary: {
+    backgroundColor: colors.accent,
+    borderRadius: radii.pill,
+    paddingVertical: 15,
+    alignItems: 'center',
+  },
+  primaryText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  snoozeRow: { flexDirection: 'row', gap: spacing.sm },
+  snooze: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderRadius: radii.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  snoozeText: { color: colors.text, fontWeight: '600' },
+  secondary: {
+    borderRadius: radii.pill,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  secondaryText: { color: colors.text, fontWeight: '600', fontSize: 15 },
+  danger: {
+    borderRadius: radii.pill,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  dangerText: { color: colors.danger, fontWeight: '600', fontSize: 15 },
+});
