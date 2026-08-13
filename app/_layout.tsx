@@ -6,13 +6,15 @@ import { useEffect, useState } from 'react';
 
 import { MemorySplash } from '@/components/MemorySplash';
 import { colors } from '@/constants/theme';
-import { getDatabase } from '@/lib/db/database';
-import { announceReminder } from '@/lib/services/announce';
 import { initializeAds } from '@/lib/ads/init';
-import { handleNotificationResponse } from '@/lib/services/notificationActions';
+import { getDatabase } from '@/lib/db/database';
+import {
+  attachDueSpeechOnForeground,
+  handleNotificationResponse,
+  speakForReceivedNotification,
+} from '@/lib/services/notificationActions';
 import { ensureNotificationPermissions } from '@/lib/services/notifications';
 import { useReminderStore } from '@/store/useReminderStore';
-import { useSettingsStore } from '@/store/useSettingsStore';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -28,16 +30,12 @@ function useNotificationBridge() {
 
     const receivedSub = Notifications.addNotificationReceivedListener(
       (notification) => {
-        const settings = useSettingsStore.getState().getSettings();
-        if (!settings.speakAlerts) return;
-        const title = notification.request.content.title;
-        const body = notification.request.content.body;
-        const spoken = [title, body].filter(Boolean).join('. ');
-        if (spoken) {
-          announceReminder(spoken, settings.voiceLanguage);
-        }
+        // Fires when Yaad is already open (foreground). Speaks the action aloud.
+        speakForReceivedNotification(notification);
       },
     );
+
+    const detachForeground = attachDueSpeechOnForeground();
 
     Notifications.getLastNotificationResponseAsync().then((response) => {
       if (!response) return;
@@ -51,6 +49,7 @@ function useNotificationBridge() {
     return () => {
       responseSub.remove();
       receivedSub.remove();
+      detachForeground();
     };
   }, []);
 }

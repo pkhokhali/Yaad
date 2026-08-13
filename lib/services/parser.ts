@@ -1,5 +1,6 @@
 import * as chrono from 'chrono-node';
 
+import { formatActionTitle, normalizeReminderTitle } from '@/lib/services/actionCopy';
 import { suggestCategory } from '@/lib/services/categorize';
 import { listRecentReminders } from '@/lib/db/reminders';
 import { ParsedCapture, Reminder } from '@/types';
@@ -158,7 +159,7 @@ export function parseLocalDueAt(
   }
 
   const durationMin = text.match(
-    /(\d+|[०-९]+|एक|दुई|दुइ|तीन|चार|पाँच|पांच|छ|सात|आठ|नौ|दश|दस|एघार|बाह्र)\s*(मिनेट|min(?:ute)?s?)\s*(मा)?/iu,
+    /(?:(?:after|in)\s+)?(\d+|[०-९]+|एक|दुई|दुइ|तीन|चार|पाँच|पांच|छ|सात|आठ|नौ|दश|दस|एघार|बाह्र)\s*(मिनेट|min(?:ute)?s?)\s*(मा|पछि)?/iu,
   );
   const durationHour = text.match(
     /(\d+|[०-९]+|एक|दुई|दुइ|तीन|चार|पाँच|पांच|छ|सात|आठ|नौ|दश|दस|एघार|बाह्र)\s*(घण्टा|ghanta|hours?)\s*(मा)?/iu,
@@ -224,11 +225,11 @@ function stripLocalPhrases(title: string): string {
 }
 
 function cleanTitle(text: string, dueAt: Date): string {
-  let title = text.replace(PREFIX, '').trim();
+  let title = normalizeReminderTitle(text.replace(PREFIX, '').trim());
 
   title = stripLocalPhrases(
     title.replace(
-      /\b(today|tomorrow|tonight|this (morning|afternoon|evening|week)|next (week|monday|tuesday|wednesday|thursday|friday|saturday|sunday)|at \d{1,2}(:\d{2})?\s*(am|pm)?|in \d+\s*(minutes?|hours?|days?)|on \w+day)\b/gi,
+      /\b(today|tomorrow|tonight|this (morning|afternoon|evening|week)|next (week|monday|tuesday|wednesday|thursday|friday|saturday|sunday)|at \d{1,2}(:\d{2})?\s*(am|pm)?|(?:after|in)\s+\d+\s*(minutes?|hours?|days?|mins?)|on \w+day)\b/gi,
       '',
     ),
   )
@@ -237,7 +238,7 @@ function cleanTitle(text: string, dueAt: Date): string {
     .trim();
 
   if (!title) {
-    title = text.replace(PREFIX, '').trim() || 'Reminder';
+    title = normalizeReminderTitle(text.replace(PREFIX, '').trim()) || 'Reminder';
   }
 
   void dueAt;
@@ -332,10 +333,12 @@ export async function parseCaptureText(
     title = referenced.title;
   }
 
+  const category = suggestCategory(text) || referenced?.category || 'general';
+
   return {
-    title,
+    title: formatActionTitle(title, category),
     dueAt,
-    category: suggestCategory(text) || referenced?.category || 'general',
+    category,
     rawText: text,
     confident:
       title.trim().length >= 3 &&

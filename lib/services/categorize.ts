@@ -1,7 +1,7 @@
 import { Category } from '@/types';
 
 const CALL_PATTERNS =
-  /(?:\b(call|phone|ring|dial|talk to|speak with|follow.?up with|distributor|doctor|dr\.?)\b|कल\s*गर्|फोन\s*गर्|कुरा\s*गर्|डाक्टर)/iu;
+  /(?:\b(call|phone|ring|dial|talk to|speak with|follow.?up with|distributor|doctor|dr\.?)\b|need to call|gotta call|कल\s*गर्|फोन\s*गर्|कुरा\s*गर्|डाक्टर)/iu;
 const DOCUMENT_PATTERNS =
   /(?:\b(report|document|submit|file|form|invoice|send|email|write|draft|ppt|presentation|excel)\b|रिपोर्ट|कागजात|फारम|पठाउ|इमेल)/iu;
 const REPEAT_PATTERNS =

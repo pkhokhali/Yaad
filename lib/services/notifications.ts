@@ -2,6 +2,11 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
+import {
+  formatActionTitle,
+  formatNotificationBody,
+  formatSpokenAlert,
+} from '@/lib/services/actionCopy';
 import { clearLogsForReminder, logNotification } from '@/lib/db/notificationLog';
 import {
   createReminder,
@@ -101,6 +106,16 @@ async function setupAndroidChannels(): Promise<void> {
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 250, 250, 250],
     lightColor: '#C45C26',
+    enableVibrate: true,
+    showBadge: true,
+  });
+  await Notifications.setNotificationChannelAsync('yaad-calls', {
+    name: 'Yaad Calls',
+    importance: Notifications.AndroidImportance.MAX,
+    vibrationPattern: [0, 400, 200, 400],
+    lightColor: '#2563EB',
+    enableVibrate: true,
+    showBadge: true,
   });
   await Notifications.setNotificationChannelAsync('yaad-nudges', {
     name: 'Yaad Nudges',
@@ -164,19 +179,26 @@ async function scheduleOne(
 
   const isNudge = tier === 'nudge';
   const isInsist = tier === 'insist1' || tier === 'insist2';
-  const channelId = isNudge ? 'yaad-nudges' : 'yaad-alerts';
+  const channelId = isNudge
+    ? 'yaad-nudges'
+    : reminder.category === 'call'
+      ? 'yaad-calls'
+      : 'yaad-alerts';
+  const actionTitle = formatActionTitle(reminder.title, reminder.category);
   const title = isNudge
-    ? `Soon: ${reminder.title}`
+    ? `Soon: ${actionTitle}`
     : isInsist
-      ? `Still open: ${reminder.title}`
-      : reminder.title;
+      ? `Still open: ${actionTitle}`
+      : actionTitle;
   const body = isNudge
-    ? `Coming up in about an hour · ${formatTime(reminder.due_at)}`
-    : isInsist
-      ? 'Done · Snooze · or say it on Voice'
-      : reminder.category === 'call'
-        ? 'Call · Done · Snooze 30m'
-        : reminder.notes || 'Done · Snooze · Voice';
+    ? `Coming up · ${formatTime(reminder.due_at)}`
+    : formatNotificationBody(reminder.category, reminder.notes, tier);
+  const spoken = formatSpokenAlert(
+    reminder.title,
+    reminder.category,
+    settings.voiceLanguage ?? 'en',
+    tier,
+  );
 
   await Notifications.scheduleNotificationAsync({
     identifier: notificationId(reminder.id, tier),
@@ -190,6 +212,8 @@ async function scheduleOne(
         tier,
         kind: 'reminder',
         category: reminder.category,
+        spoken,
+        speak: true,
       },
       ...(Platform.OS === 'android' ? { channelId } : {}),
     },

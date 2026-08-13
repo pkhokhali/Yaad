@@ -1,6 +1,7 @@
 import * as Speech from 'expo-speech';
 
-import { VoiceLanguage } from '@/types';
+import { formatSpokenAlert } from '@/lib/services/actionCopy';
+import { Category, VoiceLanguage } from '@/types';
 
 function speechLocale(language: VoiceLanguage): string {
   if (language === 'en') return 'en-US';
@@ -24,4 +25,25 @@ export function announceReminder(
     pitch: 1,
     rate: 0.92,
   });
+}
+
+type AnnounceInput = {
+  title?: string | null;
+  body?: string | null;
+  spoken?: string | null;
+  category?: Category | string | null;
+  tier?: 'nudge' | 'alert' | 'insist1' | 'insist2';
+  language: VoiceLanguage;
+};
+
+/** Prefer action-aware copy over raw notification title+body. */
+export function announceFromNotification(input: AnnounceInput): void {
+  const category = (input.category as Category) || 'general';
+  const tier = input.tier || 'alert';
+  const spoken =
+    input.spoken?.trim() ||
+    (input.title
+      ? formatSpokenAlert(input.title, category, input.language, tier)
+      : [input.title, input.body].filter(Boolean).join('. '));
+  announceReminder(spoken, input.language);
 }

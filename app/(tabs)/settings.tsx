@@ -230,8 +230,10 @@ export default function SettingsScreen() {
             <View style={{ flex: 1, paddingRight: spacing.md }}>
               <Text style={styles.rowTitle}>Speak alerts</Text>
               <Text style={styles.rowHint}>
-                Yaad reads the reminder aloud when the app is open. From the
-                lock screen, use Done, Snooze, Call, or Voice.
+                Reads the action aloud (e.g. “Time to call — Call mom”) when
+                Yaad is open, or when you tap / press Call on the notification.
+                Phone OS blocks speech while the screen is locked with the app
+                fully closed.
               </Text>
             </View>
             <Switch
