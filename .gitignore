@@ -40,6 +40,14 @@ yarn-error.*
 /ios
 /android
 
+# Android / Gradle build output (including local Expo modules)
+**/.gradle/
+**/android/build/
+**/android/.cxx/
+**/android/app/build/
+*.dex
+*.class
+
 # local build artifacts
 /dist/
 *.apk

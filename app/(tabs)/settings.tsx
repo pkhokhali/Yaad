@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 import {
+  Linking,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -8,8 +10,12 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { openBatterySettings } from 'yaad-native';
 
-import { colors, radii, spacing } from '@/constants/theme';
+import { MemoryNodeIcon } from '@/components/MemoryNodeIcon';
+import { brand, colors, radii, spacing } from '@/constants/theme';
+import { promptOfflineLanguageDownload } from '@/lib/services/speechRecognition';
+import { openVoiceCapture } from '@/lib/services/voiceCapture';
 import { VOICE_LANGUAGE_OPTIONS } from '@/lib/services/voiceLanguages';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { UrgencyCurve } from '@/types';
@@ -55,8 +61,14 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.brand}>Settings</Text>
-        <Text style={styles.lead}>
+        <View style={styles.titleRow}>
+          <MemoryNodeIcon size={36} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.brand}>Settings</Text>
+            <Text style={styles.lead}>{brand.motto}</Text>
+          </View>
+        </View>
+        <Text style={styles.leadSecondary}>
           Notifications stay on-device. Nothing leaves your phone.
         </Text>
 
@@ -131,6 +143,46 @@ export default function SettingsScreen() {
           ) : null}
         </View>
 
+        <Text style={styles.section}>Hey Google & shortcuts</Text>
+        <View style={styles.card}>
+          <Text style={styles.rowTitle}>Add reminders hands-free</Text>
+          <Text style={[styles.rowHint, { marginTop: spacing.sm }]}>
+            Pin Yaad’s voice shortcut, or teach Google Assistant to open Yaad
+            and start listening — similar to “Hey Google, remind me…”.
+          </Text>
+          <View style={styles.steps}>
+            <Text style={styles.step}>
+              1. Long-press the Yaad icon → Shortcuts → “Voice reminder”
+            </Text>
+            <Text style={styles.step}>
+              2. Or say “Hey Google, add reminder in Yaad”
+            </Text>
+            <Text style={styles.step}>
+              3. Or “Hey Google, open voice reminder in Yaad”
+            </Text>
+          </View>
+          <Pressable
+            style={styles.batteryBtn}
+            onPress={() => openVoiceCapture()}
+          >
+            <Text style={styles.batteryBtnText}>Try voice capture now</Text>
+          </Pressable>
+          {Platform.OS === 'android' ? (
+            <Pressable
+              style={[styles.batteryBtn, { marginTop: spacing.sm }]}
+              onPress={() =>
+                Linking.openSettings().catch(() => undefined)
+              }
+            >
+              <Text style={styles.batteryBtnText}>Open app settings</Text>
+            </Pressable>
+          ) : null}
+          <Text style={[styles.rowHint, { marginTop: spacing.md }]}>
+            Assistant phrases may take a day to sync after install. Yaad listens
+            on-device — nothing is sent to the cloud.
+          </Text>
+        </View>
+
         <Text style={styles.section}>Voice language</Text>
         <View style={styles.card}>
           {VOICE_LANGUAGE_OPTIONS.map((lang, idx, arr) => (
@@ -162,6 +214,33 @@ export default function SettingsScreen() {
               Most phones have no Newari speech model. Yaad will listen in
               Nepali and still parse नेपाल भाषा time words in the transcript.
             </Text>
+          ) : null}
+          {voiceLanguage === 'ne' ? (
+            <Text style={styles.fallbackNote}>
+              Nepali works best with internet on. Speak clearly, include the
+              time (“2 minute pachhi”, “भोलि 8 बजे”). Romanized Nepali from
+              Google STT is supported too.
+            </Text>
+          ) : null}
+          {voiceLanguage === 'en' ? (
+            <Text style={styles.fallbackNote}>
+              Say the full phrase: “remind me to call mom after 2 minutes”.
+              Hold the mic until you finish speaking.
+            </Text>
+          ) : null}
+          {Platform.OS === 'android' && voiceLanguage !== 'en' ? (
+            <Pressable
+              style={[styles.batteryBtn, { marginTop: spacing.md }]}
+              onPress={() =>
+                promptOfflineLanguageDownload(voiceLanguage).catch(
+                  () => undefined,
+                )
+              }
+            >
+              <Text style={styles.batteryBtnText}>
+                Download offline voice model
+              </Text>
+            </Pressable>
           ) : null}
         </View>
 
@@ -230,10 +309,9 @@ export default function SettingsScreen() {
             <View style={{ flex: 1, paddingRight: spacing.md }}>
               <Text style={styles.rowTitle}>Speak alerts</Text>
               <Text style={styles.rowHint}>
-                Reads the action aloud (e.g. “Time to call — Call mom”) when
-                Yaad is open, or when you tap / press Call on the notification.
-                Phone OS blocks speech while the screen is locked with the app
-                fully closed.
+                Generates on-device speech for each alert (plays on lock
+                screen). Call reminders can also wake the screen with Call /
+                Done / Snooze.
               </Text>
             </View>
             <Switch
@@ -243,6 +321,22 @@ export default function SettingsScreen() {
             />
           </View>
         </View>
+
+        {Platform.OS === 'android' ? (
+          <View style={[styles.card, { marginTop: spacing.lg }]}>
+            <Text style={styles.rowTitle}>Reliable alerts</Text>
+            <Text style={[styles.rowHint, { marginTop: spacing.sm }]}>
+              On some phones, battery savers delay reminders. Allow Yaad to run
+              unrestricted so spoken alerts and call interrupts arrive on time.
+            </Text>
+            <Pressable
+              style={styles.batteryBtn}
+              onPress={() => openBatterySettings().catch(() => undefined)}
+            >
+              <Text style={styles.batteryBtnText}>Open battery settings</Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         <Text style={styles.footer}>
           Yaad · याद · local-first · no accounts · no cloud
@@ -255,13 +349,24 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.lg, paddingBottom: spacing.xxxl },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginBottom: spacing.sm,
+  },
   brand: {
     fontSize: 28,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: spacing.xs,
   },
   lead: {
+    fontSize: 13,
+    color: colors.accent,
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  leadSecondary: {
     fontSize: 14,
     color: colors.textMuted,
     marginBottom: spacing.xl,
@@ -341,6 +446,30 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textMuted,
     lineHeight: 18,
+  },
+  batteryBtn: {
+    marginTop: spacing.lg,
+    alignSelf: 'flex-start',
+    paddingVertical: 10,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radii.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.accent,
+    backgroundColor: colors.accentSoft,
+  },
+  batteryBtnText: {
+    color: colors.accent,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  steps: {
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  step: {
+    fontSize: 13,
+    color: colors.textMuted,
+    lineHeight: 20,
   },
   footer: {
     marginTop: spacing.xxxl,

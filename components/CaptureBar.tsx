@@ -1,10 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
-import {
-  ExpoSpeechRecognitionModule,
-  useSpeechRecognitionEvent,
-} from 'expo-speech-recognition';
-import { useRouter } from 'expo-router';
+import { useSpeechRecognitionEvent } from 'expo-speech-recognition';
 import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,13 +12,18 @@ import {
 } from 'react-native';
 
 import { colors, radii, spacing } from '@/constants/theme';
-import { parseCaptureText } from '@/lib/services/parser';
+import {
+  normalizeSpeechTranscript,
+  speechErrorMessage,
+  startSpeechSession,
+  stopSpeechSession,
+  TranscriptAccumulator,
+} from '@/lib/services/speechRecognition';
+import { openVoiceCapture, submitVoiceCapture } from '@/lib/services/voiceCapture';
 import {
   getVoiceLanguageOption,
   nextVoiceLanguage,
-  resolveSpeechLocale,
 } from '@/lib/services/voiceLanguages';
-import { useReminderStore } from '@/store/useReminderStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
 type Props = {
@@ -37,75 +37,45 @@ const PLACEHOLDERS = {
 } as const;
 
 export function CaptureBar({ onSubmitText }: Props) {
-  const router = useRouter();
   const voiceLanguage = useSettingsStore((s) => s.voiceLanguage ?? 'en');
   const setVoiceLanguage = useSettingsStore((s) => s.setVoiceLanguage);
   const getSettings = useSettingsStore((s) => s.getSettings);
-  const addReminder = useReminderStore((s) => s.addReminder);
   const langOption = getVoiceLanguageOption(voiceLanguage);
 
   const [text, setText] = useState('');
   const [listening, setListening] = useState(false);
   const [micHint, setMicHint] = useState<string | null>(null);
-  const interimRef = useRef('');
+  const accumulatorRef = useRef(new TranscriptAccumulator());
   const holdActive = useRef(false);
 
-  const handleVoiceCapture = useCallback(
-    async (finalText: string) => {
-      try {
-        const parsed = await parseCaptureText(finalText);
-        if (parsed.confident) {
-          await addReminder(
-            {
-              title: parsed.title,
-              notes: parsed.rawText,
-              due_at: parsed.dueAt.getTime(),
-              category: parsed.category,
-            },
-            getSettings(),
-          );
-          await Haptics.notificationAsync(
-            Haptics.NotificationFeedbackType.Success,
-          );
-          setMicHint(`Saved · ${parsed.title}`);
-          return;
-        }
-      } catch {
-        // Fall through to the confirm screen
-      }
-      router.push({
-        pathname: '/add',
-        params: { draft: finalText, fromVoice: '1' },
-      });
-    },
-    [addReminder, getSettings, router],
-  );
-  const handleVoiceCaptureRef = useRef(handleVoiceCapture);
-  handleVoiceCaptureRef.current = handleVoiceCapture;
-
   useSpeechRecognitionEvent('result', (event) => {
-    const transcript = event.results?.[0]?.transcript?.trim();
-    if (transcript) {
-      interimRef.current = transcript;
-      setText(transcript);
-    }
+    const transcript = accumulatorRef.current.update(event);
+    if (transcript) setText(transcript);
   });
 
   useSpeechRecognitionEvent('end', () => {
     setListening(false);
-    const finalText = interimRef.current.trim();
+    const finalText = normalizeSpeechTranscript(
+      accumulatorRef.current.text,
+      voiceLanguage,
+    );
     if (finalText && holdActive.current === false) {
-      handleVoiceCaptureRef.current(finalText);
+      submitVoiceCapture(finalText, getSettings()).then((result) => {
+        if (result.status === 'saved') {
+          setMicHint(`Saved · ${result.title}`);
+        }
+      });
       setText('');
-      interimRef.current = '';
+      accumulatorRef.current.reset();
     } else if (!finalText) {
       setMicHint(null);
     }
   });
 
-  useSpeechRecognitionEvent('error', () => {
+  useSpeechRecognitionEvent('error', (event) => {
     setListening(false);
-    setMicHint('Couldn’t hear that — try typing');
+    holdActive.current = false;
+    setMicHint(speechErrorMessage(event.error));
   });
 
   const submit = useCallback(() => {
@@ -124,54 +94,53 @@ export function CaptureBar({ onSubmitText }: Props) {
   const startListening = useCallback(async () => {
     setMicHint(null);
     holdActive.current = true;
+    accumulatorRef.current.reset();
     try {
-      const perm =
-        await ExpoSpeechRecognitionModule.requestPermissionsAsync();
-      if (!perm.granted) {
-        setMicHint('Microphone permission needed');
-        holdActive.current = false;
-        return;
-      }
-      const resolved = await resolveSpeechLocale(voiceLanguage);
-      if (resolved.usedFallback && voiceLanguage === 'new') {
-        setMicHint('Newari isn’t on this phone — listening in Nepali');
-      } else {
-        setMicHint(langOption.hint);
-      }
-      interimRef.current = '';
+      const session = await startSpeechSession(voiceLanguage, 'hold');
+      setMicHint(session.hint ?? langOption.hint);
       setListening(true);
-      ExpoSpeechRecognitionModule.start({
-        lang: resolved.locale,
-        interimResults: true,
-        continuous: false,
-        contextualStrings: langOption.contextualStrings,
-      });
-    } catch {
+    } catch (err) {
       holdActive.current = false;
       setListening(false);
-      setMicHint('Hold mic in a native build, or type instead');
+      setMicHint(
+        err instanceof Error ? err.message : 'Hold mic in a native build, or type instead',
+      );
     }
   }, [langOption, voiceLanguage]);
 
   const stopListening = useCallback(() => {
     holdActive.current = false;
     try {
-      ExpoSpeechRecognitionModule.stop();
+      stopSpeechSession();
     } catch {
       setListening(false);
-      const finalText = interimRef.current.trim() || text.trim();
+      const finalText = normalizeSpeechTranscript(
+        accumulatorRef.current.text || text.trim(),
+        voiceLanguage,
+      );
       if (finalText) {
-        handleVoiceCaptureRef.current(finalText);
+        submitVoiceCapture(finalText, getSettings()).then((result) => {
+          if (result.status === 'saved') {
+            setMicHint(`Saved · ${result.title}`);
+          }
+        });
         setText('');
-        interimRef.current = '';
+        accumulatorRef.current.reset();
       }
     }
-  }, [text]);
+  }, [getSettings, text, voiceLanguage]);
 
   return (
     <View style={styles.wrap}>
       {micHint ? <Text style={styles.hint}>{micHint}</Text> : null}
       <View style={styles.bar}>
+        <Pressable
+          onPress={() => openVoiceCapture()}
+          style={styles.assistBtn}
+          accessibilityLabel="Open hands-free voice capture"
+        >
+          <Ionicons name="sparkles" size={16} color={colors.accent} />
+        </Pressable>
         <TextInput
           style={styles.input}
           placeholder={PLACEHOLDERS[voiceLanguage]}
@@ -243,16 +212,25 @@ const styles = StyleSheet.create({
     borderRadius: radii.input,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
-    paddingLeft: spacing.lg,
+    paddingLeft: spacing.xs,
     paddingRight: spacing.xs,
     minHeight: 52,
-    gap: 6,
+    gap: 4,
+  },
+  assistBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: spacing.xs,
   },
   input: {
     flex: 1,
     fontSize: 16,
     color: colors.text,
     paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xs,
   },
   send: {
     width: 34,

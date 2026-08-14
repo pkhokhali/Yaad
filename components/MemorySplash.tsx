@@ -10,7 +10,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as SplashScreen from 'expo-splash-screen';
 
-import { colors } from '@/constants/theme';
+import { MemoryNodeIcon } from '@/components/MemoryNodeIcon';
+import { brand, colors } from '@/constants/theme';
 
 type Props = {
   ready: boolean;
@@ -19,7 +20,7 @@ type Props = {
 
 export function MemorySplash({ ready, onFinished }: Props) {
   const finished = useRef(false);
-  const ghost = useSharedValue(0);
+  const node = useSharedValue(0);
   const word = useSharedValue(0);
   const whisper = useSharedValue(0);
   const screen = useSharedValue(1);
@@ -32,16 +33,16 @@ export function MemorySplash({ ready, onFinished }: Props) {
 
   useEffect(() => {
     SplashScreen.hideAsync().catch(() => undefined);
-    ghost.value = withTiming(0.22, {
-      duration: 1000,
+    node.value = withTiming(1, {
+      duration: 900,
       easing: Easing.out(Easing.cubic),
     });
     word.value = withDelay(
-      320,
-      withTiming(1, { duration: 1100, easing: Easing.out(Easing.cubic) }),
+      420,
+      withTiming(1, { duration: 900, easing: Easing.out(Easing.cubic) }),
     );
-    whisper.value = withDelay(980, withTiming(1, { duration: 700 }));
-  }, [ghost, word, whisper]);
+    whisper.value = withDelay(900, withTiming(1, { duration: 700 }));
+  }, [node, word, whisper]);
 
   useEffect(() => {
     if (!ready) return;
@@ -57,9 +58,9 @@ export function MemorySplash({ ready, onFinished }: Props) {
     return () => clearTimeout(hold);
   }, [ready, screen]);
 
-  const ghostStyle = useAnimatedStyle(() => ({
-    opacity: ghost.value * screen.value,
-    transform: [{ scale: 1.08 + (1 - ghost.value) * 0.04 }],
+  const nodeStyle = useAnimatedStyle(() => ({
+    opacity: node.value * screen.value,
+    transform: [{ scale: 0.88 + node.value * 0.12 }],
   }));
 
   const wordStyle = useAnimatedStyle(() => ({
@@ -74,12 +75,12 @@ export function MemorySplash({ ready, onFinished }: Props) {
   return (
     <Pressable style={styles.root} onPress={() => (ready ? finish() : undefined)}>
       <View style={styles.center}>
-        <View style={styles.wordWrap}>
-          <Animated.Text style={[styles.ghost, ghostStyle]}>याद</Animated.Text>
-          <Animated.Text style={[styles.word, wordStyle]}>याद</Animated.Text>
-        </View>
+        <Animated.View style={nodeStyle}>
+          <MemoryNodeIcon size={96} />
+        </Animated.View>
+        <Animated.Text style={[styles.word, wordStyle]}>Yaad</Animated.Text>
         <Animated.Text style={[styles.whisper, whisperStyle]}>
-          it comes back
+          {brand.voiceTagline}
         </Animated.Text>
       </View>
     </Pressable>
@@ -96,30 +97,18 @@ const styles = StyleSheet.create({
   center: {
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  wordWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 100,
-  },
-  ghost: {
-    position: 'absolute',
-    fontSize: 92,
-    fontWeight: '300',
-    color: colors.accent,
-    letterSpacing: 8,
+    gap: 16,
   },
   word: {
-    fontSize: 64,
-    fontWeight: '600',
+    fontSize: 36,
+    fontWeight: '700',
     color: colors.text,
-    letterSpacing: 6,
+    letterSpacing: 1,
   },
   whisper: {
-    marginTop: 18,
     fontSize: 13,
-    color: colors.textSubtle,
-    letterSpacing: 2.4,
-    textTransform: 'lowercase',
+    color: colors.textMuted,
+    letterSpacing: 0.4,
+    fontStyle: 'italic',
   },
 });

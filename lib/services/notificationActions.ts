@@ -70,6 +70,10 @@ async function runCall(reminderId: string): Promise<void> {
   }
 }
 
+export async function runCallAction(reminderId: string): Promise<void> {
+  await runCall(reminderId);
+}
+
 export function speakForReceivedNotification(
   notification: Notifications.Notification,
 ): void {

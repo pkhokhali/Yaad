@@ -6,8 +6,8 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "yaad",
-    "userInterfaceStyle": "light",
-    "primaryColor": "#C45C26",
+    "userInterfaceStyle": "dark",
+    "primaryColor": "#FFB300",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.pkhokhali.yaad",
@@ -20,7 +20,7 @@
       "package": "com.pkhokhali.yaad",
       "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#F7F8FA",
+        "backgroundColor": "#12141A",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -32,8 +32,8 @@
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
         "USE_EXACT_ALARM",
-        "android.permission.RECORD_AUDIO",
-        "com.google.android.gms.permission.AD_ID"
+        "android.permission.USE_FULL_SCREEN_INTENT",
+        "android.permission.WAKE_LOCK"
       ],
       "blockedPermissions": [
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -59,7 +59,7 @@
         {
           "image": "./assets/images/splash-icon.png",
           "resizeMode": "contain",
-          "backgroundColor": "#F7F8FA"
+          "backgroundColor": "#12141A"
         }
       ],
       "expo-sqlite",
@@ -67,7 +67,7 @@
       [
         "expo-notifications",
         {
-          "color": "#C45C26"
+          "color": "#FFB300"
         }
       ],
       [
@@ -84,13 +84,23 @@
           "iosAppId": "ca-app-pub-3940256099942544~1458002511"
         }
       ],
-      "./plugins/withPlayServicesAdsPin"
+      "./plugins/withPlayServicesAdsPin",
+      "./plugins/withYaadAlerts",
+      "./plugins/withYaadVoiceShortcut"
     ],
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
-      "router": {}
+      "router": {},
+      "storeListing": {
+        "featureGraphic": "./assets/store/feature-graphic.png",
+        "screenshots": {
+          "inbox": "./assets/store/screenshot-04-inbox.png"
+        },
+        "shortDescription": "Voice-first reminders. 100% on-device.",
+        "fullDescription": "Don't remember. Just Yaad. Voice-first reminders stored only on your phone — no cloud, no accounts."
+      }
     }
   },
   "react-native-google-mobile-ads": {

@@ -37,6 +37,7 @@ export function ReminderCard({ reminder, highlighted = false, onPress }: Props) 
         pressed && styles.pressed,
       ]}
     >
+      <View style={[styles.stripe, highlighted && styles.stripeActive]} />
       <CategoryChip
         category={reminder.category}
         filled={highlighted && !done}
@@ -61,13 +62,26 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     backgroundColor: colors.surface,
     borderRadius: radii.card,
-    padding: spacing.lg,
+    paddingVertical: spacing.lg,
+    paddingRight: spacing.lg,
+    paddingLeft: 0,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.borderHairline,
+    overflow: 'hidden',
+  },
+  stripe: {
+    width: 4,
+    alignSelf: 'stretch',
+    backgroundColor: colors.accent,
+    opacity: 0.65,
+    borderTopLeftRadius: radii.card,
+    borderBottomLeftRadius: radii.card,
+  },
+  stripeActive: {
+    opacity: 1,
   },
   highlighted: {
-    borderWidth: 2,
-    borderColor: colors.accent,
+    borderColor: colors.accentGlow,
   },
   done: {
     opacity: 0.55,

@@ -6,7 +6,7 @@ import { listRecentReminders } from '@/lib/db/reminders';
 import { ParsedCapture, Reminder } from '@/types';
 
 const PREFIX =
-  /^(remind me to|remind me|remember to|don't forget to|dont forget to|yaad|याद|मलाई सम्झाउ|मलाई याद गर|सम्झाउ|सम्झनु|नबिर्स|न बिर्स|लुमंके|लुमनं)\s+/iu;
+  /^(remind me to|remind me|remember to|don't forget to|dont forget to|need to|yaad|याद|मलाई सम्झाउ|मलाई याद गर|सम्झाउ|सम्झनु|नबिर्स|न बिर्स|लुमंके|लुमनं|malai samjhau|samjhau|yaad gar)\s+/iu;
 
 const WORD_NUMBERS: Record<string, number> = {
   एक: 1,
@@ -159,7 +159,7 @@ export function parseLocalDueAt(
   }
 
   const durationMin = text.match(
-    /(?:(?:after|in)\s+)?(\d+|[०-९]+|एक|दुई|दुइ|तीन|चार|पाँच|पांच|छ|सात|आठ|नौ|दश|दस|एघार|बाह्र)\s*(मिनेट|min(?:ute)?s?)\s*(मा|पछि)?/iu,
+    /(?:(?:after|in|pachhi|pachi|ma)\s+)?(\d+|[०-९]+|एक|दुई|दुइ|तीन|चार|पाँच|पांच|छ|सात|आठ|नौ|दश|दस|एघार|बाह्र|two|three|four|five)\s*(?:मिनेट|min(?:ute)?s?)\s*(?:मा|ma|pachhi|pachi|पछि)?/iu,
   );
   const durationHour = text.match(
     /(\d+|[०-९]+|एक|दुई|दुइ|तीन|चार|पाँच|पांच|छ|सात|आठ|नौ|दश|दस|एघार|बाह्र)\s*(घण्टा|ghanta|hours?)\s*(मा)?/iu,

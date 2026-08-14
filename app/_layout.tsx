@@ -8,12 +8,14 @@ import { MemorySplash } from '@/components/MemorySplash';
 import { colors } from '@/constants/theme';
 import { initializeAds } from '@/lib/ads/init';
 import { getDatabase } from '@/lib/db/database';
+import { attachYaadDeepLinkListener } from '@/lib/services/deepLinks';
 import {
   attachDueSpeechOnForeground,
   handleNotificationResponse,
   speakForReceivedNotification,
 } from '@/lib/services/notificationActions';
 import { ensureNotificationPermissions } from '@/lib/services/notifications';
+import { registerBackgroundNotificationTask } from '@/lib/tasks/backgroundNotificationTask';
 import { useReminderStore } from '@/store/useReminderStore';
 
 export { ErrorBoundary } from 'expo-router';
@@ -36,6 +38,7 @@ function useNotificationBridge() {
     );
 
     const detachForeground = attachDueSpeechOnForeground();
+    const detachDeepLinks = attachYaadDeepLinkListener();
 
     Notifications.getLastNotificationResponseAsync().then((response) => {
       if (!response) return;
@@ -50,6 +53,7 @@ function useNotificationBridge() {
       responseSub.remove();
       receivedSub.remove();
       detachForeground();
+      detachDeepLinks();
     };
   }, []);
 }
@@ -65,6 +69,7 @@ export default function RootLayout() {
       try {
         await getDatabase();
         await ensureNotificationPermissions();
+        await registerBackgroundNotificationTask();
         await initializeAds();
         await bootstrap();
       } finally {
@@ -79,7 +84,7 @@ export default function RootLayout() {
 
   return (
     <>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
       <Stack
         screenOptions={{
           headerShadowVisible: false,
@@ -95,6 +100,14 @@ export default function RootLayout() {
           options={{
             presentation: 'modal',
             title: 'New reminder',
+          }}
+        />
+        <Stack.Screen
+          name="capture"
+          options={{
+            presentation: 'modal',
+            title: 'Voice capture',
+            headerShown: false,
           }}
         />
         <Stack.Screen

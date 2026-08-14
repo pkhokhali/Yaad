@@ -7,6 +7,7 @@ import {
   formatNotificationBody,
   formatSpokenAlert,
 } from '@/lib/services/actionCopy';
+import { ensureSpokenNotificationChannel } from '@/lib/services/ttsSound';
 import { clearLogsForReminder, logNotification } from '@/lib/db/notificationLog';
 import {
   createReminder,
@@ -179,11 +180,6 @@ async function scheduleOne(
 
   const isNudge = tier === 'nudge';
   const isInsist = tier === 'insist1' || tier === 'insist2';
-  const channelId = isNudge
-    ? 'yaad-nudges'
-    : reminder.category === 'call'
-      ? 'yaad-calls'
-      : 'yaad-alerts';
   const actionTitle = formatActionTitle(reminder.title, reminder.category);
   const title = isNudge
     ? `Soon: ${actionTitle}`
@@ -200,12 +196,45 @@ async function scheduleOne(
     tier,
   );
 
+  let channelId = isNudge
+    ? 'yaad-nudges'
+    : reminder.category === 'call'
+      ? 'yaad-calls'
+      : 'yaad-alerts';
+
+  const isCallAlert =
+    reminder.category === 'call' && (tier === 'alert' || tier === 'insist1');
+  const useSpokenSound =
+    settings.speakAlerts &&
+    !isNudge &&
+    Platform.OS === 'android' &&
+    settings.notificationSound !== 'subtle';
+
+  if (useSpokenSound) {
+    const channelKey = `${reminder.id}-${tier}`;
+    const spokenChannel = await ensureSpokenNotificationChannel(
+      channelKey,
+      spoken,
+      settings.voiceLanguage ?? 'en',
+    );
+    if (spokenChannel) channelId = spokenChannel;
+  }
+
+  const androidSound =
+    Platform.OS === 'android'
+      ? undefined
+      : settings.notificationSound === 'subtle'
+        ? undefined
+        : 'default';
+
   await Notifications.scheduleNotificationAsync({
     identifier: notificationId(reminder.id, tier),
     content: {
       title,
       body,
-      sound: settings.notificationSound === 'subtle' ? undefined : 'default',
+      sound: androidSound,
+      priority: isCallAlert ? 'max' : 'high',
+      sticky: isCallAlert,
       categoryIdentifier: categoryFor(reminder),
       data: {
         reminderId: reminder.id,
@@ -213,7 +242,8 @@ async function scheduleOne(
         kind: 'reminder',
         category: reminder.category,
         spoken,
-        speak: true,
+        speak: settings.speakAlerts,
+        fullScreen: isCallAlert,
       },
       ...(Platform.OS === 'android' ? { channelId } : {}),
     },

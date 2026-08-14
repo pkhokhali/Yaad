@@ -14,7 +14,7 @@ export type VoiceLanguageOption = {
 
 /**
  * Preferred BCP-47 tags, first match wins.
- * Newari has no OS speech model on Google/Apple, so it falls through to Nepali.
+ * Do not fall back to Hindi for Nepali — it misrecognizes Nepali speech badly.
  */
 export const VOICE_LANGUAGE_OPTIONS: VoiceLanguageOption[] = [
   {
@@ -22,14 +22,21 @@ export const VOICE_LANGUAGE_OPTIONS: VoiceLanguageOption[] = [
     label: 'English',
     nativeLabel: 'English',
     short: 'EN',
-    hint: 'Listen in English',
-    locales: ['en-US', 'en-IN', 'en-GB'],
+    hint: 'Speak in English',
+    locales: ['en-IN', 'en-US', 'en-GB', 'en'],
     contextualStrings: [
       'remind me',
+      'remind me to',
+      'remember to',
       'tomorrow',
       'tonight',
       'this evening',
+      'after 2 minutes',
+      'in 5 minutes',
+      'need to call',
+      'call mom',
       'call',
+      'minutes',
     ],
   },
   {
@@ -38,17 +45,28 @@ export const VOICE_LANGUAGE_OPTIONS: VoiceLanguageOption[] = [
     nativeLabel: 'नेपाली',
     short: 'ने',
     hint: 'नेपालीमा बोल्नुहोस्',
-    locales: ['ne-NP', 'ne', 'hi-IN'],
+    locales: ['ne-NP', 'ne'],
     contextualStrings: [
+      'मलाई सम्झाउ',
+      'सम्झाउ',
+      'याद गर',
       'भोलि',
       'आज',
       'पर्सि',
       'बजे',
       'बिहान',
       'बेलुका',
-      'याद',
-      'सम्झाउ',
+      'मिनेट',
+      'मिनेटमा',
+      'घण्टा',
+      'पछि',
+      'फोन',
       'कल गर्नु',
+      'malai samjhau',
+      'bholi',
+      'aaja',
+      'minute pachhi',
+      'call garnu',
     ],
   },
   {
@@ -57,7 +75,7 @@ export const VOICE_LANGUAGE_OPTIONS: VoiceLanguageOption[] = [
     nativeLabel: 'नेपाल भाषा',
     short: 'नेवा',
     hint: 'नेपाल भाषां ल्हाये',
-    locales: ['new-NP', 'new', 'ne-NP', 'ne', 'hi-IN'],
+    locales: ['new-NP', 'new', 'ne-NP', 'ne'],
     contextualStrings: [
       'थौं',
       'कन्हय्',
@@ -67,6 +85,9 @@ export const VOICE_LANGUAGE_OPTIONS: VoiceLanguageOption[] = [
       'लुमंके',
       'बजे',
       'भोलि',
+      'सम्झाउ',
+      'malai samjhau',
+      'bholi',
     ],
   },
 ];
@@ -110,52 +131,65 @@ export type ResolvedSpeechLocale = {
   usedFallback: boolean;
 };
 
+async function getRecognizerLocales(): Promise<{
+  supported: string[];
+  installed: string[];
+}> {
+  try {
+    const result = await ExpoSpeechRecognitionModule.getSupportedLocales({});
+    return {
+      supported: result.locales ?? [],
+      installed: result.installedLocales ?? [],
+    };
+  } catch {
+    return { supported: [], installed: [] };
+  }
+}
+
 /**
- * Pick a locale the recognizer can actually use.
- * Network STT (Android Google) often understands ne-NP even when it is not
- * in the on-device list, so Nepali still requests ne-NP in that case.
+ * Pick a locale the recognizer can use. Network Google STT often accepts ne-NP
+ * even when it is not listed as installed offline.
  */
 export async function resolveSpeechLocale(
   lang: VoiceLanguage,
 ): Promise<ResolvedSpeechLocale> {
   const option = getVoiceLanguageOption(lang);
   const primary = option.locales[0];
+  const { supported, installed } = await getRecognizerLocales();
 
-  let supported: string[] = [];
-  try {
-    const result = await ExpoSpeechRecognitionModule.getSupportedLocales({});
-    supported = result.locales ?? [];
-  } catch {
-    supported = [];
-  }
-
-  if (lang === 'new') {
-    const nativeNewari = option.locales
-      .filter((code) => localePrefix(code) === 'new')
-      .map((code) => findSupported(supported, code))
-      .find(Boolean);
-    if (nativeNewari) {
-      return { locale: nativeNewari, usedFallback: false };
-    }
-    const nepali =
-      findSupported(supported, 'ne-NP') ??
-      findSupported(supported, 'ne') ??
-      findSupported(supported, 'hi-IN') ??
-      'ne-NP';
-    return { locale: nepali, usedFallback: true };
-  }
-
-  if (supported.length > 0) {
-    for (const code of option.locales) {
-      const hit = findSupported(supported, code);
-      if (hit) {
+  const pickFromLists = (codes: string[]) => {
+    for (const code of codes) {
+      const installedHit = findSupported(installed, code);
+      if (installedHit) {
         return {
-          locale: hit,
-          usedFallback: localePrefix(hit) !== localePrefix(primary),
+          locale: installedHit,
+          usedFallback: localePrefix(installedHit) !== localePrefix(primary),
+        };
+      }
+      const supportedHit = findSupported(supported, code);
+      if (supportedHit) {
+        return {
+          locale: supportedHit,
+          usedFallback: localePrefix(supportedHit) !== localePrefix(primary),
         };
       }
     }
+    return null;
+  };
+
+  if (lang === 'new') {
+    const native = pickFromLists(
+      option.locales.filter((code) => localePrefix(code) === 'new'),
+    );
+    if (native) return native;
+    const nepali = pickFromLists(['ne-NP', 'ne']);
+    if (nepali) return { ...nepali, usedFallback: true };
+    return { locale: 'ne-NP', usedFallback: true };
   }
 
+  const hit = pickFromLists(option.locales);
+  if (hit) return hit;
+
+  // Request primary — Google network STT often still works (especially ne-NP).
   return { locale: primary, usedFallback: false };
 }
