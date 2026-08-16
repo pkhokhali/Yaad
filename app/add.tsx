@@ -6,6 +6,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
@@ -14,17 +15,25 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CategoryChip } from '@/components/CategoryChip';
+import { ContentColumn } from '@/components/ContentColumn';
+import { PhotoAttach } from '@/components/PhotoAttach';
 import { colors, radii, spacing } from '@/constants/theme';
+import { CARE_CATEGORIES, CATEGORY_LABEL } from '@/lib/care/categories';
+import { persistReminderPhoto } from '@/lib/care/photos';
+import { useResponsive } from '@/hooks/useResponsive';
 import { parseCaptureText } from '@/lib/services/parser';
 import { useReminderStore } from '@/store/useReminderStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { Category } from '@/types';
 
-const CATEGORIES: Category[] = ['call', 'document', 'repeat', 'general'];
+const CATEGORIES = CARE_CATEGORIES;
 
 export default function AddReminderScreen() {
+  const insets = useSafeAreaInsets();
+  const { gutter, s } = useResponsive();
   const router = useRouter();
   const params = useLocalSearchParams<{ draft?: string; fromVoice?: string }>();
   const addReminder = useReminderStore((s) => s.addReminder);
@@ -33,7 +42,9 @@ export default function AddReminderScreen() {
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
   const [dueAt, setDueAt] = useState(new Date(Date.now() + 60 * 60 * 1000));
-  const [category, setCategory] = useState<Category>('general');
+  const [category, setCategory] = useState<Category>('medicine');
+  const [everyDay, setEveryDay] = useState(true);
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [parsing, setParsing] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showPicker, setShowPicker] = useState(Platform.OS === 'ios');
@@ -57,6 +68,7 @@ export default function AddReminderScreen() {
         setTitle(parsed.title);
         setDueAt(parsed.dueAt);
         setCategory(parsed.category);
+        setEveryDay(parsed.category === 'medicine');
         if (params.fromVoice === '1') {
           setNotes(parsed.rawText);
         }
@@ -78,15 +90,24 @@ export default function AddReminderScreen() {
     if (!title.trim()) return;
     setSaving(true);
     try {
-      await addReminder(
+      const reminder = await addReminder(
         {
           title: title.trim(),
           notes: notes.trim() || null,
           due_at: dueAt.getTime(),
           category,
+          repeat_rule: everyDay ? 'daily' : null,
         },
         getSettings(),
       );
+      if (photoUri) {
+        const stored = await persistReminderPhoto(photoUri, reminder.id);
+        await useReminderStore.getState().editReminder(
+          reminder.id,
+          { image_uri: stored },
+          getSettings(),
+        );
+      }
       router.back();
     } finally {
       setSaving(false);
@@ -94,11 +115,23 @@ export default function AddReminderScreen() {
   };
 
   return (
-    <ScrollView
+    <KeyboardAvoidingView
       style={styles.screen}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+      <ContentColumn>
+        <ScrollView
+          style={styles.screen}
+          contentContainerStyle={[
+            styles.content,
+            {
+              paddingLeft: Math.max(gutter, insets.left),
+              paddingRight: Math.max(gutter, insets.right),
+              paddingBottom: s(32) + insets.bottom,
+            },
+          ]}
+          keyboardShouldPersistTaps="handled"
+        >
       {parsing ? (
         <View style={styles.loading}>
           <ActivityIndicator color={colors.accent} />
@@ -141,8 +174,22 @@ export default function AddReminderScreen() {
             />
           ) : null}
 
+          <Pressable
+            style={[styles.everyDay, everyDay && styles.everyDayOn]}
+            onPress={() => setEveryDay((v) => !v)}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: everyDay }}
+          >
+            <Text style={[styles.everyDayText, everyDay && styles.everyDayTextOn]}>
+              Every day
+            </Text>
+            <Text style={styles.everyDayHint}>
+              {everyDay ? 'Until you mark it Done each day' : 'Once'}
+            </Text>
+          </Pressable>
+
           <Text style={[styles.label, { marginTop: spacing.lg }]}>
-            Category
+            What kind
           </Text>
           <View style={styles.categories}>
             {CATEGORIES.map((c) => {
@@ -150,7 +197,10 @@ export default function AddReminderScreen() {
               return (
                 <Pressable
                   key={c}
-                  onPress={() => setCategory(c)}
+                  onPress={() => {
+                    setCategory(c);
+                    if (c === 'medicine') setEveryDay(true);
+                  }}
                   style={[
                     styles.categoryBtn,
                     selected && styles.categoryBtnSelected,
@@ -163,12 +213,26 @@ export default function AddReminderScreen() {
                       selected && styles.categoryLabelSelected,
                     ]}
                   >
-                    {c}
+                    {CATEGORY_LABEL[c]}
                   </Text>
                 </Pressable>
               );
             })}
           </View>
+
+          <PhotoAttach
+            uri={photoUri}
+            onChange={setPhotoUri}
+            prompt={
+              category === 'medicine'
+                ? 'Picture of the medicine'
+                : category === 'buy'
+                  ? 'Picture of what to buy'
+                  : category === 'doctor'
+                    ? 'Picture of the appointment'
+                    : 'Add a photo'
+            }
+          />
 
           <Text style={[styles.label, { marginTop: spacing.lg }]}>Notes</Text>
           <TextInput
@@ -193,13 +257,15 @@ export default function AddReminderScreen() {
           <Text style={styles.saveText}>Save reminder</Text>
         )}
       </Pressable>
-    </ScrollView>
+      </ScrollView>
+      </ContentColumn>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.lg, paddingBottom: spacing.xxxl },
+  content: { paddingVertical: spacing.lg },
   loading: {
     alignItems: 'center',
     gap: spacing.md,
@@ -234,6 +300,30 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   whenText: { fontSize: 16, color: colors.text, fontWeight: '500' },
+  everyDay: {
+    marginTop: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radii.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+  },
+  everyDayOn: {
+    borderColor: colors.accent,
+    backgroundColor: colors.accentSoft,
+  },
+  everyDayText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textMuted,
+  },
+  everyDayTextOn: { color: colors.text },
+  everyDayHint: {
+    marginTop: 2,
+    fontSize: 13,
+    color: colors.textSubtle,
+  },
   categories: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -257,7 +347,6 @@ const styles = StyleSheet.create({
   categoryLabel: {
     fontSize: 13,
     color: colors.textMuted,
-    textTransform: 'capitalize',
   },
   categoryLabelSelected: { color: colors.text, fontWeight: '600' },
   notesInput: {

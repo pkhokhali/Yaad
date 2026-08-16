@@ -13,9 +13,11 @@ import {
   createReminder,
   getReminderById,
   listOpenThrough,
+  listReminders,
   updateReminder,
 } from '@/lib/db/reminders';
-import { AppSettings, Reminder, UrgencyCurve } from '@/types';
+import { careAlertOffsets, DAILY_UNTIL_DONE_DAYS } from '@/lib/care/alerts';
+import { AppSettings, Reminder } from '@/types';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -31,10 +33,19 @@ export const CATEGORY_ALERT = 'yaadAlert';
 export const CATEGORY_CALL = 'yaadCall';
 const SWEEP_ID = 'yaadSweep';
 
-function notificationId(
-  reminderId: string,
-  tier: 'nudge' | 'alert' | 'insist1' | 'insist2',
-): string {
+type ScheduleTier = string;
+
+const ALL_TIERS: ScheduleTier[] = [
+  'nudge',
+  'alert',
+  'insist1',
+  'insist2',
+  ...Array.from({ length: 6 }, (_, i) => `pre${i}`),
+  ...Array.from({ length: 6 }, (_, i) => `post${i}`),
+  ...Array.from({ length: 14 }, (_, i) => `daily${i}`),
+];
+
+function notificationId(reminderId: string, tier: ScheduleTier): string {
   return `${SCHEDULED_PREFIX}:${reminderId}:${tier}`;
 }
 
@@ -126,6 +137,10 @@ async function setupAndroidChannels(): Promise<void> {
   });
 }
 
+function minutesOfDay(date: Date): number {
+  return date.getHours() * 60 + date.getMinutes();
+}
+
 /** Defer fire times that land inside quiet hours to quietHoursEnd (same or next day). */
 export function adjustForQuietHours(
   fireAt: number,
@@ -135,7 +150,7 @@ export function adjustForQuietHours(
   if (!settings.quietHoursEnabled || isUrgent) return fireAt;
 
   const date = new Date(fireAt);
-  const hour = date.getHours();
+  const minutes = minutesOfDay(date);
   const start = settings.quietHoursStart;
   const end = settings.quietHoursEnd;
 
@@ -143,13 +158,13 @@ export function adjustForQuietHours(
     start === end
       ? false
       : start < end
-        ? hour >= start && hour < end
-        : hour >= start || hour < end;
+        ? minutes >= start && minutes < end
+        : minutes >= start || minutes < end;
 
   if (!inQuiet) return fireAt;
 
   const adjusted = new Date(fireAt);
-  adjusted.setHours(end, 0, 0, 0);
+  adjusted.setHours(Math.floor(end / 60), end % 60, 0, 0);
   if (adjusted.getTime() <= fireAt) {
     adjusted.setDate(adjusted.getDate() + 1);
   }
@@ -158,7 +173,7 @@ export function adjustForQuietHours(
 
 async function cancelReminderNotifications(reminderId: string): Promise<void> {
   await Promise.all(
-    (['nudge', 'alert', 'insist1', 'insist2'] as const).map((tier) =>
+    ALL_TIERS.map((tier) =>
       Notifications.cancelScheduledNotificationAsync(
         notificationId(reminderId, tier),
       ).catch(() => undefined),
@@ -172,28 +187,30 @@ function categoryFor(reminder: Reminder): string {
 
 async function scheduleOne(
   reminder: Reminder,
-  tier: 'nudge' | 'alert' | 'insist1' | 'insist2',
+  tier: ScheduleTier,
   when: number,
   settings: AppSettings,
 ): Promise<void> {
   if (when <= Date.now() + 1500) return;
 
-  const isNudge = tier === 'nudge';
-  const isInsist = tier === 'insist1' || tier === 'insist2';
+  const isNudge = tier === 'nudge' || tier.startsWith('pre');
+  const isFollowUp =
+    tier.startsWith('post') || tier.startsWith('daily') || tier === 'insist1' || tier === 'insist2';
   const actionTitle = formatActionTitle(reminder.title, reminder.category);
   const title = isNudge
     ? `Soon: ${actionTitle}`
-    : isInsist
+    : isFollowUp
       ? `Still open: ${actionTitle}`
       : actionTitle;
+  const copyTier = isNudge ? 'nudge' : isFollowUp ? 'insist1' : 'alert';
   const body = isNudge
     ? `Coming up · ${formatTime(reminder.due_at)}`
-    : formatNotificationBody(reminder.category, reminder.notes, tier);
+    : formatNotificationBody(reminder.category, reminder.notes, copyTier);
   const spoken = formatSpokenAlert(
     reminder.title,
     reminder.category,
     settings.voiceLanguage ?? 'en',
-    tier,
+    copyTier,
   );
 
   let channelId = isNudge
@@ -202,8 +219,9 @@ async function scheduleOne(
       ? 'yaad-calls'
       : 'yaad-alerts';
 
-  const isCallAlert =
-    reminder.category === 'call' && (tier === 'alert' || tier === 'insist1');
+  const isInterrupt =
+    (reminder.category === 'call' || reminder.category === 'medicine') &&
+    (tier === 'alert' || tier === 'post0');
   const useSpokenSound =
     settings.speakAlerts &&
     !isNudge &&
@@ -233,8 +251,8 @@ async function scheduleOne(
       title,
       body,
       sound: androidSound,
-      priority: isCallAlert ? 'max' : 'high',
-      sticky: isCallAlert,
+      priority: isInterrupt ? 'max' : 'high',
+      sticky: isInterrupt,
       categoryIdentifier: categoryFor(reminder),
       data: {
         reminderId: reminder.id,
@@ -243,7 +261,7 @@ async function scheduleOne(
         category: reminder.category,
         spoken,
         speak: settings.speakAlerts,
-        fullScreen: isCallAlert,
+        fullScreen: isInterrupt,
       },
       ...(Platform.OS === 'android' ? { channelId } : {}),
     },
@@ -254,8 +272,8 @@ async function scheduleOne(
     },
   });
 
-  if (tier === 'nudge' || tier === 'alert') {
-    await logNotification(reminder.id, tier, when);
+  if (tier === 'nudge' || tier === 'alert' || tier.startsWith('pre')) {
+    await logNotification(reminder.id, isNudge ? 'nudge' : 'alert', when);
   }
 }
 
@@ -280,31 +298,51 @@ export async function scheduleReminderNotifications(
   }
 
   const isUrgent = Boolean(reminder.is_urgent);
-  const curve: UrgencyCurve = reminder.urgency_curve || 'standard';
   const alertAt = adjustForQuietHours(reminder.due_at, settings, isUrgent);
+  const { before, after } = careAlertOffsets(settings.alertsBeforeDeadline ?? 3);
 
-  if (curve === 'escalating') {
-    const nudgeAt = adjustForQuietHours(
-      reminder.due_at - 60 * 60 * 1000,
-      settings,
-      isUrgent,
-    );
-    await scheduleOne(reminder, 'nudge', nudgeAt, settings);
-  }
+  await Promise.all(
+    before.map((minutesBefore, index) =>
+      scheduleOne(
+        reminder,
+        `pre${index}`,
+        adjustForQuietHours(
+          reminder.due_at - minutesBefore * 60 * 1000,
+          settings,
+          isUrgent,
+        ),
+        settings,
+      ),
+    ),
+  );
 
   await scheduleOne(reminder, 'alert', alertAt, settings);
-  await scheduleOne(
-    reminder,
-    'insist1',
-    adjustForQuietHours(alertAt + 30 * 60 * 1000, settings, isUrgent),
-    settings,
+
+  await Promise.all(
+    after.map((minutesAfter, index) =>
+      scheduleOne(
+        reminder,
+        `post${index}`,
+        adjustForQuietHours(alertAt + minutesAfter * 60 * 1000, settings, isUrgent),
+        settings,
+      ),
+    ),
   );
-  await scheduleOne(
-    reminder,
-    'insist2',
-    adjustForQuietHours(alertAt + 2 * 60 * 60 * 1000, settings, isUrgent),
-    settings,
-  );
+
+  if (!reminder.repeat_rule) {
+    const due = new Date(reminder.due_at);
+    for (let day = 1; day <= DAILY_UNTIL_DONE_DAYS; day += 1) {
+      const next = new Date(due);
+      next.setDate(due.getDate() + day);
+      await scheduleOne(
+        reminder,
+        `daily${day - 1}`,
+        adjustForQuietHours(next.getTime(), settings, isUrgent),
+        settings,
+      );
+    }
+  }
+
   await refreshEveningSweep(settings);
 }
 
@@ -313,20 +351,30 @@ export async function cancelAllForReminder(reminderId: string): Promise<void> {
   await clearLogsForReminder(reminderId);
 }
 
+export async function rescheduleOpenReminders(
+  settings: AppSettings,
+): Promise<void> {
+  const open = (await listReminders()).filter((r) => !r.is_done);
+  for (const reminder of open) {
+    await scheduleReminderNotifications(reminder, settings);
+  }
+}
+
 function nextSweepAt(settings: AppSettings): Date {
   const d = new Date();
   let hour = 20;
   if (settings.quietHoursEnabled) {
     const start = settings.quietHoursStart;
     const end = settings.quietHoursEnd;
+    const minutes = hour * 60;
     const inQuiet =
       start === end
         ? false
         : start < end
-          ? hour >= start && hour < end
-          : hour >= start || hour < end;
+          ? minutes >= start && minutes < end
+          : minutes >= start || minutes < end;
     if (inQuiet) {
-      hour = (start + 23) % 24;
+      hour = Math.floor(((start + 1440 - 60) % 1440) / 60);
     }
   }
   d.setHours(hour, 0, 0, 0);
@@ -420,6 +468,7 @@ export async function completeWithRepeat(
     repeat_rule: reminder.repeat_rule,
     urgency_curve: reminder.urgency_curve,
     is_urgent: Boolean(reminder.is_urgent),
+    image_uri: reminder.image_uri ?? null,
   });
   await scheduleReminderNotifications(next, settings);
   return next;

@@ -3,6 +3,8 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback } from 'react';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   FlatList,
   Pressable,
   StyleSheet,
@@ -12,15 +14,18 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AdBanner } from '@/components/AdBanner';
-import { MemoryNodeFab } from '@/components/MemoryNodeFab';
+import { CaptureBar } from '@/components/CaptureBar';
+import { ContentColumn } from '@/components/ContentColumn';
 import { MemoryNodeIcon } from '@/components/MemoryNodeIcon';
 import { ReminderCard } from '@/components/ReminderCard';
 import { StreakBadge } from '@/components/StreakBadge';
 import { brand, colors, spacing } from '@/constants/theme';
+import { useResponsive } from '@/hooks/useResponsive';
 import { useReminderStore } from '@/store/useReminderStore';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { gutter, s } = useResponsive();
   const reminders = useReminderStore((s) => s.reminders);
   const streak = useReminderStore((s) => s.streak);
   const highlightId = useReminderStore((s) => s.highlightId);
@@ -41,96 +46,122 @@ export default function HomeScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={styles.brand}>Yaad</Text>
-        <MemoryNodeIcon size={34} />
-        <Pressable
-          onPress={() => router.push('/settings')}
-          hitSlop={12}
-          accessibilityLabel="Settings"
-        >
-          <Ionicons name="ellipsis-vertical" size={22} color={colors.textMuted} />
-        </Pressable>
-      </View>
-
-      <View style={styles.hero}>
-        <Text style={styles.heroTitle}>ALWAYS IN YOUR POCKET</Text>
-        <Text style={styles.heroSub}>{brand.tagline}</Text>
-      </View>
-
-      <View style={styles.tabs}>
-        <View style={styles.tabActive}>
-          <Text style={styles.tabActiveText}>Main</Text>
-        </View>
-        <Pressable style={styles.tab} onPress={() => router.push('/settings')}>
-          <Text style={styles.tabText}>Settings</Text>
-        </Pressable>
-      </View>
-
-      <View style={styles.sectionRow}>
-        <Text style={styles.sectionTitle}>Timeline</Text>
-        <StreakBadge count={streak} />
-      </View>
-
-      {loading && reminders.length === 0 ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.accent} />
-        </View>
-      ) : (
-        <FlatList
-          data={open}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
-          onRefresh={onRefresh}
-          refreshing={loading}
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <Text style={styles.emptyTitle}>Nothing due today</Text>
-              <Text style={styles.emptyBody}>
-                Tap the Memory Node to speak a reminder — stored only on this
-                device.
-              </Text>
-            </View>
-          }
-          renderItem={({ item }) => (
-            <ReminderCard
-              reminder={item}
-              highlighted={item.id === highlightId}
-              onPress={() => router.push(`/reminder/${item.id}`)}
+    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+      <KeyboardAvoidingView
+        style={styles.safe}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+      <ContentColumn>
+        <View style={[styles.header, { paddingHorizontal: gutter }]}>
+          <Text style={[styles.brand, { fontSize: s(22) }]}>Yaad</Text>
+          <MemoryNodeIcon size={s(34)} />
+          <Pressable
+            onPress={() => router.push('/settings')}
+            hitSlop={12}
+            accessibilityLabel="Settings"
+          >
+            <Ionicons
+              name="ellipsis-vertical"
+              size={s(22)}
+              color={colors.textMuted}
             />
-          )}
-          ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
-          ListFooterComponent={
-            <>
-              <Pressable
-                style={styles.addCard}
-                onPress={() => router.push('/add')}
-              >
-                <View style={styles.addStripe} />
-                <Text style={styles.addTitle}>Add new entry</Text>
-              </Pressable>
-              {done.length > 0 ? (
-                <View style={styles.doneSection}>
-                  <Text style={styles.doneLabel}>Done today</Text>
-                  {done.map((item) => (
-                    <View key={item.id} style={{ marginBottom: spacing.sm }}>
-                      <ReminderCard
-                        reminder={item}
-                        onPress={() => router.push(`/reminder/${item.id}`)}
-                      />
-                    </View>
-                  ))}
-                </View>
-              ) : null}
-              <View style={{ height: 88 }} />
-            </>
+          </Pressable>
+        </View>
+
+        <View style={[styles.hero, { paddingHorizontal: gutter }]}>
+          <Text style={styles.heroTitle}>ALWAYS IN YOUR POCKET</Text>
+          <Text style={styles.heroSub}>{brand.tagline}</Text>
+        </View>
+
+        <View style={[styles.tabs, { paddingHorizontal: gutter }]}>
+          <View style={styles.tabActive}>
+            <Text style={styles.tabActiveText}>Main</Text>
+          </View>
+          <Pressable style={styles.tab} onPress={() => router.push('/settings')}>
+            <Text style={styles.tabText}>Settings</Text>
+          </Pressable>
+        </View>
+
+        <View style={[styles.sectionRow, { paddingHorizontal: gutter }]}>
+          <Text style={[styles.sectionTitle, { fontSize: s(18) }]}>
+            Timeline
+          </Text>
+          <StreakBadge count={streak} />
+        </View>
+
+        {loading && reminders.length === 0 ? (
+          <View style={styles.center}>
+            <ActivityIndicator color={colors.accent} />
+          </View>
+        ) : (
+          <FlatList
+            data={open}
+            keyExtractor={(item) => item.id}
+            style={styles.listFlex}
+            contentContainerStyle={[
+              styles.list,
+              {
+                paddingHorizontal: gutter,
+                paddingBottom: spacing.lg,
+              },
+            ]}
+            onRefresh={onRefresh}
+            refreshing={loading}
+            ListEmptyComponent={
+              <View style={styles.empty}>
+                <Text style={styles.emptyTitle}>Nothing due today</Text>
+                <Text style={styles.emptyBody}>
+                  Medicine, a refill, a doctor visit — type it below or tap the
+                  mic. Stored only on this phone.
+                </Text>
+              </View>
+            }
+            renderItem={({ item }) => (
+              <ReminderCard
+                reminder={item}
+                highlighted={item.id === highlightId}
+                onPress={() => router.push(`/reminder/${item.id}`)}
+              />
+            )}
+            ItemSeparatorComponent={() => (
+              <View style={{ height: spacing.sm }} />
+            )}
+            ListFooterComponent={
+              <>
+                <Pressable
+                  style={styles.addCard}
+                  onPress={() => router.push('/add')}
+                >
+                  <View style={styles.addStripe} />
+                  <Text style={styles.addTitle}>Add new entry</Text>
+                </Pressable>
+                {done.length > 0 ? (
+                  <View style={styles.doneSection}>
+                    <Text style={styles.doneLabel}>Done today</Text>
+                    {done.map((item) => (
+                      <View key={item.id} style={{ marginBottom: spacing.sm }}>
+                        <ReminderCard
+                          reminder={item}
+                          onPress={() => router.push(`/reminder/${item.id}`)}
+                        />
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+              </>
+            }
+          />
+        )}
+
+        <CaptureBar
+          gutter={gutter}
+          onSubmitText={(text) =>
+            router.push({ pathname: '/add', params: { draft: text } })
           }
         />
-      )}
-
-      <AdBanner />
-      <MemoryNodeFab />
+        <AdBanner />
+      </ContentColumn>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -144,19 +175,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
     paddingBottom: spacing.md,
   },
   brand: {
-    fontSize: 22,
     fontWeight: '700',
     color: colors.text,
     letterSpacing: 0.3,
     minWidth: 72,
   },
   hero: {
-    paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
   },
   heroTitle: {
@@ -173,7 +201,6 @@ const styles = StyleSheet.create({
   },
   tabs: {
     flexDirection: 'row',
-    paddingHorizontal: spacing.lg,
     gap: spacing.lg,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.borderHairline,
@@ -200,17 +227,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
     marginBottom: spacing.sm,
   },
   sectionTitle: {
-    fontSize: 18,
     fontWeight: '600',
     color: colors.text,
   },
+  listFlex: {
+    flex: 1,
+  },
   list: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
     flexGrow: 1,
   },
   center: {

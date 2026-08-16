@@ -28,15 +28,16 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 
 type Props = {
   onSubmitText: (text: string) => void;
+  gutter?: number;
 };
 
 const PLACEHOLDERS = {
-  en: 'type a reminder...',
+  en: 'take medicine at 8...',
   ne: 'रिमाइन्डर लेख्नुहोस्...',
   new: 'लुमंकेगु च्वयादिसँ...',
 } as const;
 
-export function CaptureBar({ onSubmitText }: Props) {
+export function CaptureBar({ onSubmitText, gutter = spacing.lg }: Props) {
   const voiceLanguage = useSettingsStore((s) => s.voiceLanguage ?? 'en');
   const setVoiceLanguage = useSettingsStore((s) => s.setVoiceLanguage);
   const getSettings = useSettingsStore((s) => s.getSettings);
@@ -131,7 +132,7 @@ export function CaptureBar({ onSubmitText }: Props) {
   }, [getSettings, text, voiceLanguage]);
 
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, { paddingHorizontal: gutter }]}>
       {micHint ? <Text style={styles.hint}>{micHint}</Text> : null}
       <View style={styles.bar}>
         <Pressable
@@ -192,7 +193,6 @@ export function CaptureBar({ onSubmitText }: Props) {
 
 const styles = StyleSheet.create({
   wrap: {
-    paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
     backgroundColor: colors.background,

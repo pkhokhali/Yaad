@@ -24,10 +24,13 @@ export const categoryColors: Record<
   Category,
   { tint: string; soft: string; icon: string }
 > = {
+  medicine: { tint: '#34D399', soft: 'rgba(52, 211, 153, 0.14)', icon: 'medkit' },
+  buy: { tint: '#FBBF24', soft: 'rgba(251, 191, 36, 0.14)', icon: 'cart' },
+  doctor: { tint: '#A78BFA', soft: 'rgba(167, 139, 250, 0.14)', icon: 'medkit-outline' },
   call: { tint: '#5EB8FF', soft: 'rgba(94, 184, 255, 0.12)', icon: 'call' },
-  document: { tint: '#34D399', soft: 'rgba(52, 211, 153, 0.12)', icon: 'document-text' },
-  repeat: { tint: '#FFB300', soft: 'rgba(255, 179, 0, 0.12)', icon: 'refresh' },
   general: { tint: '#9CA3AF', soft: 'rgba(156, 163, 175, 0.12)', icon: 'bookmark' },
+  document: { tint: '#9CA3AF', soft: 'rgba(156, 163, 175, 0.12)', icon: 'document-text' },
+  repeat: { tint: '#FFB300', soft: 'rgba(255, 179, 0, 0.12)', icon: 'refresh' },
 };
 
 export const spacing = {

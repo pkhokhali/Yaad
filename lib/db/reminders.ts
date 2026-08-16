@@ -16,6 +16,7 @@ export type CreateReminderInput = {
   repeat_rule?: RepeatRule;
   urgency_curve?: UrgencyCurve;
   is_urgent?: boolean;
+  image_uri?: string | null;
 };
 
 export type UpdateReminderInput = Partial<{
@@ -27,6 +28,7 @@ export type UpdateReminderInput = Partial<{
   urgency_curve: UrgencyCurve;
   is_done: number;
   is_urgent: number;
+  image_uri: string | null;
 }>;
 
 function mapRow(row: Reminder): Reminder {
@@ -36,6 +38,7 @@ function mapRow(row: Reminder): Reminder {
     repeat_rule: (row.repeat_rule as RepeatRule) ?? null,
     category: (row.category as Category) || 'general',
     urgency_curve: (row.urgency_curve as UrgencyCurve) || 'standard',
+    image_uri: row.image_uri ?? null,
   };
 }
 
@@ -56,12 +59,13 @@ export async function createReminder(
     is_done: 0,
     created_at,
     is_urgent: input.is_urgent ? 1 : 0,
+    image_uri: input.image_uri ?? null,
   };
 
   await database.runAsync(
     `INSERT INTO reminders
-      (id, title, notes, due_at, category, repeat_rule, urgency_curve, is_done, created_at, is_urgent)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id, title, notes, due_at, category, repeat_rule, urgency_curve, is_done, created_at, is_urgent, image_uri)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       reminder.id,
       reminder.title,
@@ -73,6 +77,7 @@ export async function createReminder(
       reminder.is_done,
       reminder.created_at,
       reminder.is_urgent ?? 0,
+      reminder.image_uri ?? null,
     ],
   );
 

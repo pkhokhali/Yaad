@@ -1,4 +1,6 @@
-import { useMemo } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { useState } from 'react';
 import {
   Linking,
   Platform,
@@ -12,59 +14,62 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { openBatterySettings } from 'yaad-native';
 
+import { ContentColumn } from '@/components/ContentColumn';
 import { MemoryNodeIcon } from '@/components/MemoryNodeIcon';
 import { brand, colors, radii, spacing } from '@/constants/theme';
+import { useResponsive } from '@/hooks/useResponsive';
+import { careAlertHint } from '@/lib/care/alerts';
 import { promptOfflineLanguageDownload } from '@/lib/services/speechRecognition';
+import { rescheduleOpenReminders } from '@/lib/services/notifications';
 import { openVoiceCapture } from '@/lib/services/voiceCapture';
 import { VOICE_LANGUAGE_OPTIONS } from '@/lib/services/voiceLanguages';
 import { useSettingsStore } from '@/store/useSettingsStore';
-import { UrgencyCurve } from '@/types';
+import {
+  dateFromMinutes,
+  minutesFromDate,
+  minutesToClockLabel,
+} from '@/types';
 
-function hourLabel(h: number): string {
-  const period = h >= 12 ? 'PM' : 'AM';
-  const hour12 = h % 12 === 0 ? 12 : h % 12;
-  return `${hour12}:00 ${period}`;
+function applyScheduleSettings() {
+  rescheduleOpenReminders(useSettingsStore.getState().getSettings()).catch(
+    () => undefined,
+  );
 }
 
-const HOURS = Array.from({ length: 24 }, (_, i) => i);
-
 export default function SettingsScreen() {
+  const { gutter, s: scale } = useResponsive();
   const quietHoursEnabled = useSettingsStore((s) => s.quietHoursEnabled);
   const quietHoursStart = useSettingsStore((s) => s.quietHoursStart);
   const quietHoursEnd = useSettingsStore((s) => s.quietHoursEnd);
-  const defaultUrgencyCurve = useSettingsStore((s) => s.defaultUrgencyCurve);
   const notificationSound = useSettingsStore((s) => s.notificationSound);
   const voiceLanguage = useSettingsStore((s) => s.voiceLanguage ?? 'en');
+  const alertsBeforeDeadline = useSettingsStore(
+    (s) => s.alertsBeforeDeadline ?? 3,
+  );
   const setQuietHoursEnabled = useSettingsStore((s) => s.setQuietHoursEnabled);
   const setQuietHours = useSettingsStore((s) => s.setQuietHours);
-  const setDefaultUrgencyCurve = useSettingsStore(
-    (s) => s.setDefaultUrgencyCurve,
-  );
   const setNotificationSound = useSettingsStore((s) => s.setNotificationSound);
   const setVoiceLanguage = useSettingsStore((s) => s.setVoiceLanguage);
   const speakAlerts = useSettingsStore((s) => s.speakAlerts ?? true);
   const setSpeakAlerts = useSettingsStore((s) => s.setSpeakAlerts);
-
-  const curves = useMemo(
-    () =>
-      [
-        { value: 'standard' as UrgencyCurve, label: 'Standard', hint: 'One alert at due time' },
-        {
-          value: 'escalating' as UrgencyCurve,
-          label: 'Escalating',
-          hint: 'Quiet nudge 60m early, then alert',
-        },
-      ] as const,
-    [],
+  const setAlertsBeforeDeadline = useSettingsStore(
+    (s) => s.setAlertsBeforeDeadline,
   );
+  const [picking, setPicking] = useState<'start' | 'end' | null>(null);
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.content}>
+    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+      <ContentColumn>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingHorizontal: gutter, paddingBottom: scale(40) },
+        ]}
+      >
         <View style={styles.titleRow}>
-          <MemoryNodeIcon size={36} />
+          <MemoryNodeIcon size={scale(36)} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.brand}>Settings</Text>
+            <Text style={[styles.brand, { fontSize: scale(28) }]}>Settings</Text>
             <Text style={styles.lead}>{brand.motto}</Text>
           </View>
         </View>
@@ -82,7 +87,10 @@ export default function SettingsScreen() {
             </View>
             <Switch
               value={quietHoursEnabled}
-              onValueChange={setQuietHoursEnabled}
+              onValueChange={(enabled) => {
+                setQuietHoursEnabled(enabled);
+                applyScheduleSettings();
+              }}
               trackColor={{ true: colors.accent, false: colors.border }}
             />
           </View>
@@ -90,57 +98,84 @@ export default function SettingsScreen() {
           {quietHoursEnabled ? (
             <View style={styles.quietBlock}>
               <Text style={styles.subLabel}>From</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.hourRow}>
-                  {HOURS.map((h) => (
-                    <Pressable
-                      key={`s-${h}`}
-                      onPress={() => setQuietHours(h, quietHoursEnd)}
-                      style={[
-                        styles.hourChip,
-                        quietHoursStart === h && styles.hourChipSelected,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.hourText,
-                          quietHoursStart === h && styles.hourTextSelected,
-                        ]}
-                      >
-                        {hourLabel(h)}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </ScrollView>
+              <Pressable
+                style={styles.timeBtn}
+                onPress={() => setPicking('start')}
+              >
+                <Ionicons name="time-outline" size={18} color={colors.accent} />
+                <Text style={styles.timeBtnText}>
+                  {minutesToClockLabel(quietHoursStart)}
+                </Text>
+              </Pressable>
               <Text style={[styles.subLabel, { marginTop: spacing.md }]}>
                 Until
               </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.hourRow}>
-                  {HOURS.map((h) => (
-                    <Pressable
-                      key={`e-${h}`}
-                      onPress={() => setQuietHours(quietHoursStart, h)}
-                      style={[
-                        styles.hourChip,
-                        quietHoursEnd === h && styles.hourChipSelected,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.hourText,
-                          quietHoursEnd === h && styles.hourTextSelected,
-                        ]}
-                      >
-                        {hourLabel(h)}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </ScrollView>
+              <Pressable
+                style={styles.timeBtn}
+                onPress={() => setPicking('end')}
+              >
+                <Ionicons name="time-outline" size={18} color={colors.accent} />
+                <Text style={styles.timeBtnText}>
+                  {minutesToClockLabel(quietHoursEnd)}
+                </Text>
+              </Pressable>
+              {picking ? (
+                <DateTimePicker
+                  value={dateFromMinutes(
+                    picking === 'start' ? quietHoursStart : quietHoursEnd,
+                  )}
+                  mode="time"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={(event, date) => {
+                    if (Platform.OS === 'android') setPicking(null);
+                    if (event.type === 'dismissed' || !date) return;
+                    const minutes = minutesFromDate(date);
+                    if (picking === 'start') {
+                      setQuietHours(minutes, quietHoursEnd);
+                    } else {
+                      setQuietHours(quietHoursStart, minutes);
+                    }
+                    applyScheduleSettings();
+                  }}
+                />
+              ) : null}
             </View>
           ) : null}
+        </View>
+
+        <Text style={styles.section}>How strongly should Yaad remind you?</Text>
+        <View style={styles.card}>
+          <View style={styles.rowBetween}>
+            <View style={{ flex: 1, paddingRight: spacing.md }}>
+              <Text style={styles.rowTitle}>Times before and after</Text>
+              <Text style={styles.rowHint}>
+                {careAlertHint(alertsBeforeDeadline)}
+              </Text>
+            </View>
+            <View style={styles.stepper}>
+              <Pressable
+                style={styles.stepperBtn}
+                onPress={() => {
+                  setAlertsBeforeDeadline(alertsBeforeDeadline - 1);
+                  applyScheduleSettings();
+                }}
+                accessibilityLabel="Weaker reminders"
+              >
+                <Ionicons name="remove" size={18} color={colors.text} />
+              </Pressable>
+              <Text style={styles.stepperValue}>{alertsBeforeDeadline}</Text>
+              <Pressable
+                style={styles.stepperBtn}
+                onPress={() => {
+                  setAlertsBeforeDeadline(alertsBeforeDeadline + 1);
+                  applyScheduleSettings();
+                }}
+                accessibilityLabel="Stronger reminders"
+              >
+                <Ionicons name="add" size={18} color={colors.text} />
+              </Pressable>
+            </View>
+          </View>
         </View>
 
         <Text style={styles.section}>Hey Google & shortcuts</Text>
@@ -244,31 +279,6 @@ export default function SettingsScreen() {
           ) : null}
         </View>
 
-        <Text style={styles.section}>Default urgency</Text>
-        <View style={styles.card}>
-          {curves.map((c, idx) => (
-            <Pressable
-              key={c.value}
-              onPress={() => setDefaultUrgencyCurve(c.value)}
-              style={[
-                styles.choice,
-                idx < curves.length - 1 && styles.choiceBorder,
-              ]}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={styles.rowTitle}>{c.label}</Text>
-                <Text style={styles.rowHint}>{c.hint}</Text>
-              </View>
-              <View
-                style={[
-                  styles.radio,
-                  defaultUrgencyCurve === c.value && styles.radioOn,
-                ]}
-              />
-            </Pressable>
-          ))}
-        </View>
-
         <Text style={styles.section}>Notification style</Text>
         <View style={styles.card}>
           {(
@@ -342,13 +352,14 @@ export default function SettingsScreen() {
           Yaad · याद · local-first · no accounts · no cloud
         </Text>
       </ScrollView>
+      </ContentColumn>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.lg, paddingBottom: spacing.xxxl },
+  content: { paddingVertical: spacing.lg },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -406,20 +417,45 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     fontWeight: '600',
   },
-  hourRow: { flexDirection: 'row', gap: spacing.sm },
-  hourChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+  timeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    alignSelf: 'flex-start',
+    paddingVertical: 10,
+    paddingHorizontal: spacing.lg,
     borderRadius: radii.pill,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
+    backgroundColor: colors.background,
   },
-  hourChipSelected: {
-    borderColor: colors.accent,
-    backgroundColor: colors.accentSoft,
+  timeBtnText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
   },
-  hourText: { fontSize: 13, color: colors.textMuted },
-  hourTextSelected: { color: colors.text, fontWeight: '600' },
+  stepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  stepperBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+  },
+  stepperValue: {
+    minWidth: 24,
+    textAlign: 'center',
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
   choice: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -450,6 +486,7 @@ const styles = StyleSheet.create({
   batteryBtn: {
     marginTop: spacing.lg,
     alignSelf: 'flex-start',
+    maxWidth: '100%',
     paddingVertical: 10,
     paddingHorizontal: spacing.lg,
     borderRadius: radii.pill,
@@ -461,6 +498,7 @@ const styles = StyleSheet.create({
     color: colors.accent,
     fontWeight: '600',
     fontSize: 14,
+    flexShrink: 1,
   },
   steps: {
     marginTop: spacing.md,

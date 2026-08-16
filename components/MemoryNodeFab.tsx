@@ -6,18 +6,36 @@ import { openVoiceCapture } from '@/lib/services/voiceCapture';
 
 type Props = {
   onPress?: () => void;
+  size?: number;
+  offsetBottom?: number;
+  gutter?: number;
 };
 
-export function MemoryNodeFab({ onPress }: Props) {
+export function MemoryNodeFab({
+  onPress,
+  size = 58,
+  offsetBottom = 0,
+  gutter = spacing.lg,
+}: Props) {
   return (
-    <View style={styles.wrap} pointerEvents="box-none">
+    <View
+      style={[
+        styles.wrap,
+        { right: gutter, bottom: gutter + offsetBottom },
+      ]}
+      pointerEvents="box-none"
+    >
       <Pressable
         onPress={onPress ?? (() => openVoiceCapture())}
-        style={({ pressed }) => [styles.fab, pressed && styles.pressed]}
+        style={({ pressed }) => [
+          styles.fab,
+          { width: size, height: size, borderRadius: Math.round(size * 0.31) },
+          pressed && styles.pressed,
+        ]}
         accessibilityLabel="Add reminder by voice"
         accessibilityRole="button"
       >
-        <MemoryNodeIcon size={28} />
+        <MemoryNodeIcon size={Math.round(size * 0.48)} />
       </Pressable>
     </View>
   );
@@ -26,14 +44,9 @@ export function MemoryNodeFab({ onPress }: Props) {
 const styles = StyleSheet.create({
   wrap: {
     position: 'absolute',
-    right: spacing.lg,
-    bottom: spacing.lg,
     zIndex: 10,
   },
   fab: {
-    width: 58,
-    height: 58,
-    borderRadius: radii.fab,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.accentGlow,

@@ -37,7 +37,10 @@ function speakNotificationPayload(
     body,
     spoken: typeof data?.spoken === 'string' ? data.spoken : null,
     category: (data?.category as Category) || 'general',
-    tier: (data?.tier as 'nudge' | 'alert' | 'insist1' | 'insist2') || 'alert',
+    tier:
+      typeof data?.tier === 'string' && String(data.tier).startsWith('pre')
+        ? 'nudge'
+        : (data?.tier as 'nudge' | 'alert' | 'insist1' | 'insist2') || 'alert',
     language: settings.voiceLanguage,
   });
 }

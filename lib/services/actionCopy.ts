@@ -1,13 +1,15 @@
 import { Category, VoiceLanguage } from '@/types';
 
 const ACTION_VERB: Record<Category, { en: string; ne: string }> = {
+  medicine: { en: 'Take', ne: 'औषधि खानुहोस्' },
+  buy: { en: 'Buy', ne: 'किन्नुहोस्' },
+  doctor: { en: 'See', ne: 'डाक्टर भेट्नुहोस्' },
   call: { en: 'Call', ne: 'कल गर्नुहोस्' },
+  general: { en: 'Reminder', ne: 'याद' },
   document: { en: 'Do', ne: 'गर्नुहोस्' },
   repeat: { en: 'Repeat', ne: 'दोहोर्याउनुहोस्' },
-  general: { en: 'Reminder', ne: 'याद' },
 };
 
-/** Strip leading filler so "Need to call mom" → "call mom". */
 export function normalizeReminderTitle(raw: string): string {
   return raw
     .replace(
@@ -18,7 +20,6 @@ export function normalizeReminderTitle(raw: string): string {
     .trim();
 }
 
-/** Prefer a short action title: "Call mom" not "Need to Call mom after 2 min". */
 export function formatActionTitle(
   title: string,
   category: Category,
@@ -42,20 +43,27 @@ export function formatNotificationBody(
 ): string {
   if (tier === 'nudge') return 'Coming up soon';
   if (tier === 'insist1' || tier === 'insist2') {
-    return category === 'call'
-      ? 'Still waiting — Call · Done · Snooze'
-      : 'Still open — Done · Snooze · Voice';
+    if (category === 'medicine') return 'Please take it — then tap Done';
+    if (category === 'doctor') return 'Still waiting — see the doctor';
+    if (category === 'buy') return 'Still need to buy this';
+    if (category === 'call') return 'Still waiting — Call · Done · Snooze';
+    return 'Still open — tap Done when finished';
+  }
+  if (category === 'medicine') {
+    return notes?.trim() || 'Take your medicine, then tap Done';
+  }
+  if (category === 'buy') {
+    return notes?.trim() || 'Buy this, then tap Done';
+  }
+  if (category === 'doctor') {
+    return notes?.trim() || 'See the doctor, then tap Done';
   }
   if (category === 'call') {
     return 'Action: Call now · Done · Snooze 30m';
   }
-  if (category === 'document') {
-    return notes?.trim() || 'Action: Finish this · Done · Snooze';
-  }
   return notes?.trim() || 'Done · Snooze · Voice';
 }
 
-/** What TTS should say — action first, then the subject. */
 export function formatSpokenAlert(
   title: string,
   category: Category,
@@ -69,17 +77,23 @@ export function formatSpokenAlert(
     return ne ? `चाँडै: ${neat}` : `Coming up: ${neat}`;
   }
   if (tier === 'insist1' || tier === 'insist2') {
+    if (category === 'medicine') {
+      return ne ? `अझै औषधि बाँकी: ${neat}` : `Please take your medicine: ${neat}`;
+    }
     return ne ? `अझै बाँकी: ${neat}` : `Still open: ${neat}`;
   }
 
+  if (category === 'medicine') {
+    return ne ? `औषधि खाने समय: ${neat}` : `Time for your medicine: ${neat}`;
+  }
+  if (category === 'buy') {
+    return ne ? `किन्नुहोस्: ${neat}` : `Time to buy: ${neat}`;
+  }
+  if (category === 'doctor') {
+    return ne ? `डाक्टर भेट्ने समय: ${neat}` : `Doctor visit: ${neat}`;
+  }
   if (category === 'call') {
     return ne ? `${neat} — अहिले कल गर्नुहोस्` : `Time to call — ${neat}`;
-  }
-  if (category === 'document') {
-    return ne ? `कागजात: ${neat}` : `Document due — ${neat}`;
-  }
-  if (category === 'repeat') {
-    return ne ? `दोहोरिने: ${neat}` : `Recurring — ${neat}`;
   }
   return ne
     ? `${ACTION_VERB.general.ne}: ${neat}`

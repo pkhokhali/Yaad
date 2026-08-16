@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
@@ -15,31 +16,29 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CategoryChip } from '@/components/CategoryChip';
+import { ContentColumn } from '@/components/ContentColumn';
+import { PhotoAttach } from '@/components/PhotoAttach';
 import { colors, radii, spacing } from '@/constants/theme';
+import { CARE_CATEGORIES, CATEGORY_LABEL, normalizeCategory } from '@/lib/care/categories';
+import { persistReminderPhoto } from '@/lib/care/photos';
+import { useResponsive } from '@/hooks/useResponsive';
 import { useReminderStore } from '@/store/useReminderStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
-import {
-  Category,
-  Reminder,
-  RepeatRule,
-  UrgencyCurve,
-} from '@/types';
+import { Category, Reminder, RepeatRule } from '@/types';
 
-const CATEGORIES: Category[] = ['call', 'document', 'repeat', 'general'];
+const CATEGORIES = CARE_CATEGORIES;
 const REPEATS: { value: RepeatRule; label: string }[] = [
-  { value: null, label: 'None' },
-  { value: 'daily', label: 'Daily' },
+  { value: null, label: 'Once' },
+  { value: 'daily', label: 'Every day' },
   { value: 'weekly', label: 'Weekly' },
-  { value: 'after_visit', label: 'After visit' },
-];
-const CURVES: { value: UrgencyCurve; label: string }[] = [
-  { value: 'standard', label: 'Standard' },
-  { value: 'escalating', label: 'Escalating' },
 ];
 
 export default function ReminderDetailScreen() {
+  const insets = useSafeAreaInsets();
+  const { gutter, s } = useResponsive();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const getById = useReminderStore((s) => s.getById);
@@ -53,9 +52,9 @@ export default function ReminderDetailScreen() {
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
   const [dueAt, setDueAt] = useState(new Date());
-  const [category, setCategory] = useState<Category>('general');
+  const [category, setCategory] = useState<Category>('medicine');
   const [repeatRule, setRepeatRule] = useState<RepeatRule>(null);
-  const [urgency, setUrgency] = useState<UrgencyCurve>('standard');
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [showPicker, setShowPicker] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -70,9 +69,9 @@ export default function ReminderDetailScreen() {
     setTitle(r.title);
     setNotes(r.notes ?? '');
     setDueAt(new Date(r.due_at));
-    setCategory(r.category);
-    setRepeatRule(r.repeat_rule);
-    setUrgency(r.urgency_curve);
+    setCategory(normalizeCategory(r.category));
+    setRepeatRule(r.repeat_rule === 'after_visit' ? 'daily' : r.repeat_rule);
+    setPhotoUri(r.image_uri ?? null);
   }, [id, getById, router]);
 
   useEffect(() => {
@@ -88,6 +87,10 @@ export default function ReminderDetailScreen() {
     if (!id || !title.trim()) return;
     setBusy(true);
     try {
+      let image_uri = photoUri;
+      if (photoUri) {
+        image_uri = await persistReminderPhoto(photoUri, id);
+      }
       await editReminder(
         id,
         {
@@ -96,7 +99,7 @@ export default function ReminderDetailScreen() {
           due_at: dueAt.getTime(),
           category,
           repeat_rule: repeatRule,
-          urgency_curve: urgency,
+          image_uri,
         },
         getSettings(),
       );
@@ -152,11 +155,23 @@ export default function ReminderDetailScreen() {
   }
 
   return (
-    <ScrollView
+    <KeyboardAvoidingView
       style={styles.screen}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+      <ContentColumn>
+        <ScrollView
+          style={styles.screen}
+          contentContainerStyle={[
+            styles.content,
+            {
+              paddingLeft: Math.max(gutter, insets.left),
+              paddingRight: Math.max(gutter, insets.right),
+              paddingBottom: s(32) + insets.bottom,
+            },
+          ]}
+          keyboardShouldPersistTaps="handled"
+        >
       <View style={styles.card}>
         <View style={styles.titleRow}>
           <CategoryChip category={category} filled />
@@ -166,6 +181,20 @@ export default function ReminderDetailScreen() {
             onChangeText={setTitle}
           />
         </View>
+
+        <PhotoAttach
+          uri={photoUri}
+          onChange={setPhotoUri}
+          prompt={
+            category === 'medicine'
+              ? 'Picture of the medicine'
+              : category === 'buy'
+                ? 'Picture of what to buy'
+                : category === 'doctor'
+                  ? 'Picture of the appointment'
+                  : 'Add a photo'
+          }
+        />
 
         <Pressable style={styles.row} onPress={() => setShowPicker(true)}>
           <Ionicons name="time-outline" size={18} color={colors.accent} />
@@ -196,7 +225,7 @@ export default function ReminderDetailScreen() {
               style={[styles.chipBtn, category === c && styles.chipSelected]}
             >
               <CategoryChip category={c} filled={category === c} size={26} />
-              <Text style={styles.chipLabel}>{c}</Text>
+              <Text style={styles.chipLabel}>{CATEGORY_LABEL[c]}</Text>
             </Pressable>
           ))}
         </View>
@@ -224,29 +253,6 @@ export default function ReminderDetailScreen() {
           ))}
         </View>
 
-        <Text style={styles.label}>Urgency</Text>
-        <View style={styles.chips}>
-          {CURVES.map((c) => (
-            <Pressable
-              key={c.value}
-              onPress={() => setUrgency(c.value)}
-              style={[
-                styles.option,
-                urgency === c.value && styles.optionSelected,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.optionText,
-                  urgency === c.value && styles.optionTextSelected,
-                ]}
-              >
-                {c.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-
         <Text style={styles.label}>Notes</Text>
         <TextInput
           style={styles.notes}
@@ -262,7 +268,7 @@ export default function ReminderDetailScreen() {
         {!reminder.is_done ? (
           <>
             <Pressable style={styles.primary} onPress={onDone} disabled={busy}>
-              <Text style={styles.primaryText}>Mark done</Text>
+              <Text style={styles.primaryText}>Done</Text>
             </Pressable>
             <View style={styles.snoozeRow}>
               {[10, 30, 60].map((m) => (
@@ -286,13 +292,15 @@ export default function ReminderDetailScreen() {
           <Text style={styles.dangerText}>Delete</Text>
         </Pressable>
       </View>
-    </ScrollView>
+      </ScrollView>
+      </ContentColumn>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.lg, paddingBottom: spacing.xxxl },
+  content: { paddingVertical: spacing.lg },
   loading: {
     flex: 1,
     alignItems: 'center',
@@ -352,7 +360,6 @@ const styles = StyleSheet.create({
   chipLabel: {
     fontSize: 13,
     color: colors.textMuted,
-    textTransform: 'capitalize',
   },
   option: {
     paddingVertical: 8,
@@ -377,11 +384,11 @@ const styles = StyleSheet.create({
   primary: {
     backgroundColor: colors.accent,
     borderRadius: radii.pill,
-    paddingVertical: 15,
+    paddingVertical: 18,
     alignItems: 'center',
   },
-  primaryText: { color: '#fff', fontWeight: '700', fontSize: 16 },
-  snoozeRow: { flexDirection: 'row', gap: spacing.sm },
+  primaryText: { color: '#fff', fontWeight: '700', fontSize: 18 },
+  snoozeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   snooze: {
     flex: 1,
     alignItems: 'center',

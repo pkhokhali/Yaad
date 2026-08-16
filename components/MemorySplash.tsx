@@ -12,6 +12,7 @@ import * as SplashScreen from 'expo-splash-screen';
 
 import { MemoryNodeIcon } from '@/components/MemoryNodeIcon';
 import { brand, colors } from '@/constants/theme';
+import { useResponsive } from '@/hooks/useResponsive';
 
 type Props = {
   ready: boolean;
@@ -19,6 +20,8 @@ type Props = {
 };
 
 export function MemorySplash({ ready, onFinished }: Props) {
+  const { s } = useResponsive();
+  const startedAt = useRef(Date.now());
   const finished = useRef(false);
   const node = useSharedValue(0);
   const word = useSharedValue(0);
@@ -46,15 +49,17 @@ export function MemorySplash({ ready, onFinished }: Props) {
 
   useEffect(() => {
     if (!ready) return;
+    const elapsed = Date.now() - startedAt.current;
+    const wait = Math.max(0, 3000 - elapsed);
     const hold = setTimeout(() => {
       screen.value = withTiming(
         0,
-        { duration: 480, easing: Easing.in(Easing.cubic) },
+        { duration: 420, easing: Easing.in(Easing.cubic) },
         (done) => {
           if (done) runOnJS(finish)();
         },
       );
-    }, 650);
+    }, wait);
     return () => clearTimeout(hold);
   }, [ready, screen]);
 
@@ -73,12 +78,21 @@ export function MemorySplash({ ready, onFinished }: Props) {
   }));
 
   return (
-    <Pressable style={styles.root} onPress={() => (ready ? finish() : undefined)}>
+    <Pressable
+      style={styles.root}
+      onPress={() => {
+        if (!ready) return;
+        if (Date.now() - startedAt.current < 3000) return;
+        finish();
+      }}
+    >
       <View style={styles.center}>
         <Animated.View style={nodeStyle}>
-          <MemoryNodeIcon size={96} />
+          <MemoryNodeIcon size={s(96)} />
         </Animated.View>
-        <Animated.Text style={[styles.word, wordStyle]}>Yaad</Animated.Text>
+        <Animated.Text style={[styles.word, { fontSize: s(36) }, wordStyle]}>
+          Yaad
+        </Animated.Text>
         <Animated.Text style={[styles.whisper, whisperStyle]}>
           {brand.voiceTagline}
         </Animated.Text>
@@ -100,7 +114,6 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   word: {
-    fontSize: 36,
     fontWeight: '700',
     color: colors.text,
     letterSpacing: 1,

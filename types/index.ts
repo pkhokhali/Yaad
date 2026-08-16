@@ -1,4 +1,11 @@
-export type Category = 'call' | 'document' | 'repeat' | 'general';
+export type Category =
+  | 'medicine'
+  | 'buy'
+  | 'doctor'
+  | 'call'
+  | 'general'
+  | 'document'
+  | 'repeat';
 export type RepeatRule = 'daily' | 'weekly' | 'after_visit' | null;
 export type UrgencyCurve = 'standard' | 'escalating';
 export type NotificationTier = 'nudge' | 'alert';
@@ -15,6 +22,7 @@ export interface Reminder {
   is_done: number;
   created_at: number;
   is_urgent?: number;
+  image_uri?: string | null;
 }
 
 export interface NotificationLog {
@@ -25,13 +33,17 @@ export interface NotificationLog {
 }
 
 export interface AppSettings {
-  quietHoursStart: number; // hour 0-23
-  quietHoursEnd: number; // hour 0-23
+  /** Minutes from midnight (0–1439). */
+  quietHoursStart: number;
+  /** Minutes from midnight (0–1439). */
+  quietHoursEnd: number;
   defaultUrgencyCurve: UrgencyCurve;
   notificationSound: 'default' | 'subtle' | 'prominent';
   quietHoursEnabled: boolean;
   voiceLanguage: VoiceLanguage;
   speakAlerts: boolean;
+  /** How strongly Yaad asks: 0–6 times before, same after if not Done, then daily. */
+  alertsBeforeDeadline: number;
 }
 
 export interface ParsedCapture {
@@ -43,11 +55,30 @@ export interface ParsedCapture {
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  quietHoursStart: 22,
-  quietHoursEnd: 7,
+  quietHoursStart: 22 * 60,
+  quietHoursEnd: 7 * 60,
   defaultUrgencyCurve: 'standard',
   notificationSound: 'default',
   quietHoursEnabled: true,
   voiceLanguage: 'en',
   speakAlerts: true,
+  alertsBeforeDeadline: 3,
 };
+
+export function minutesToClockLabel(mins: number): string {
+  const total = ((Math.round(mins) % 1440) + 1440) % 1440;
+  const d = new Date();
+  d.setHours(Math.floor(total / 60), total % 60, 0, 0);
+  return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+export function dateFromMinutes(mins: number): Date {
+  const total = ((Math.round(mins) % 1440) + 1440) % 1440;
+  const d = new Date();
+  d.setHours(Math.floor(total / 60), total % 60, 0, 0);
+  return d;
+}
+
+export function minutesFromDate(date: Date): number {
+  return date.getHours() * 60 + date.getMinutes();
+}

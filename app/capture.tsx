@@ -10,14 +10,17 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ContentColumn } from '@/components/ContentColumn';
+import { MemoryNodeIcon } from '@/components/MemoryNodeIcon';
+import { colors, radii, spacing } from '@/constants/theme';
+import { useResponsive } from '@/hooks/useResponsive';
 import { useVoiceCapture } from '@/hooks/useVoiceCapture';
 import { submitVoiceCapture } from '@/lib/services/voiceCapture';
-import { MemoryNodeIcon } from '@/components/MemoryNodeIcon';
-import { brand, colors, radii, spacing } from '@/constants/theme';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
 export default function VoiceCaptureScreen() {
   const router = useRouter();
+  const { gutter, s, height, isLandscape } = useResponsive();
   const params = useLocalSearchParams<{ draft?: string; voice?: string }>();
   const getSettings = useSettingsStore((s) => s.getSettings);
   const [status, setStatus] = useState<string | null>(null);
@@ -25,6 +28,7 @@ export default function VoiceCaptureScreen() {
 
   const autoListen = params.voice !== '0';
   const draft = typeof params.draft === 'string' ? params.draft.trim() : '';
+  const orb = Math.min(s(112), Math.round(height * (isLandscape ? 0.28 : 0.18)));
 
   const voiceLanguage = useSettingsStore((s) => s.voiceLanguage ?? 'en');
 
@@ -76,66 +80,73 @@ export default function VoiceCaptureScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="close" size={28} color={colors.textMuted} />
-        </Pressable>
-        <MemoryNodeIcon size={30} />
-        <View style={{ width: 28 }} />
-      </View>
+      <ContentColumn>
+        <View style={[styles.header, { paddingHorizontal: gutter }]}>
+          <Pressable onPress={() => router.back()} hitSlop={12}>
+            <Ionicons name="close" size={s(28)} color={colors.textMuted} />
+          </Pressable>
+          <MemoryNodeIcon size={s(30)} />
+          <View style={{ width: s(28) }} />
+        </View>
 
-      <View style={styles.center}>
-        <Text style={styles.title}>
-          {listening
-            ? autoListen
-              ? 'Speak your reminder…'
-              : 'Listening…'
-            : 'Tap to speak'}
-        </Text>
-        <Text style={styles.subtitle}>
-          {hint ??
-            (autoListen
-              ? `Try: ${examples} · ${langOption.nativeLabel}`
-              : `Hold the mic, speak, then release · ${langOption.nativeLabel}`)}
-        </Text>
+        <View style={[styles.center, { paddingHorizontal: gutter }]}>
+          <Text style={[styles.title, { fontSize: s(28) }]}>
+            {listening
+              ? autoListen
+                ? 'Speak your reminder…'
+                : 'Listening…'
+              : 'Tap to speak'}
+          </Text>
+          <Text style={styles.subtitle}>
+            {hint ??
+              (autoListen
+                ? `Try: ${examples} · ${langOption.nativeLabel}`
+                : `Hold the mic, speak, then release · ${langOption.nativeLabel}`)}
+          </Text>
 
-        {transcript ? (
-          <View style={styles.transcriptBox}>
-            <Text style={styles.transcript}>{transcript}</Text>
-          </View>
-        ) : null}
+          {transcript ? (
+            <View style={styles.transcriptBox}>
+              <Text style={styles.transcript}>{transcript}</Text>
+            </View>
+          ) : null}
 
-        {status ? <Text style={styles.status}>{status}</Text> : null}
+          {status ? <Text style={styles.status}>{status}</Text> : null}
 
-        <Pressable
-          onPressIn={startListening}
-          onPressOut={stopListening}
-          disabled={busy}
-          style={({ pressed }) => [
-            styles.micOrb,
-            listening && styles.micOrbActive,
-            pressed && styles.micOrbPressed,
-          ]}
-        >
-          {busy ? (
-            <ActivityIndicator color="#fff" size="large" />
-          ) : (
-            <Ionicons
-              name={listening ? 'radio' : 'mic'}
-              size={42}
-              color="#fff"
-            />
-          )}
-        </Pressable>
+          <Pressable
+            onPressIn={startListening}
+            onPressOut={stopListening}
+            disabled={busy}
+            style={({ pressed }) => [
+              styles.micOrb,
+              {
+                width: orb,
+                height: orb,
+                borderRadius: orb / 2,
+              },
+              listening && styles.micOrbActive,
+              pressed && styles.micOrbPressed,
+            ]}
+          >
+            {busy ? (
+              <ActivityIndicator color="#fff" size="large" />
+            ) : (
+              <Ionicons
+                name={listening ? 'radio' : 'mic'}
+                size={Math.round(orb * 0.38)}
+                color="#fff"
+              />
+            )}
+          </Pressable>
 
-        <Text style={styles.footerHint}>
-          {listening
-            ? autoListen
-              ? 'Yaad saves when you finish speaking'
-              : 'Release when you’re done speaking'
-            : 'Hold the orb, speak, then release'}
-        </Text>
-      </View>
+          <Text style={styles.footerHint}>
+            {listening
+              ? autoListen
+                ? 'Yaad saves when you finish speaking'
+                : 'Release when you’re done speaking'
+              : 'Hold the orb, speak, then release'}
+          </Text>
+        </View>
+      </ContentColumn>
     </SafeAreaView>
   );
 }
@@ -149,23 +160,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-  },
-  brand: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: colors.text,
   },
   center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: spacing.xl,
     gap: spacing.lg,
   },
   title: {
-    fontSize: 28,
     fontWeight: '700',
     color: colors.text,
     textAlign: 'center',
@@ -196,9 +199,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   micOrb: {
-    width: 112,
-    height: 112,
-    borderRadius: 56,
     backgroundColor: colors.accentSoft,
     alignItems: 'center',
     justifyContent: 'center',

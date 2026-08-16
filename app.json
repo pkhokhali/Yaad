@@ -3,7 +3,7 @@
     "name": "Yaad",
     "slug": "yaad-memory",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "yaad",
     "userInterfaceStyle": "dark",
@@ -27,6 +27,7 @@
       },
       "permissions": [
         "RECORD_AUDIO",
+        "CAMERA",
         "SCHEDULE_EXACT_ALARM",
         "POST_NOTIFICATIONS",
         "RECEIVE_BOOT_COMPLETED",
@@ -46,6 +47,10 @@
       "softwareKeyboardLayoutMode": "resize",
       "allowBackup": true,
       "label": "Yaad"
+    },
+    "androidNavigationBar": {
+      "backgroundColor": "#1C1F27",
+      "barStyle": "light-content"
     },
     "web": {
       "bundler": "metro",
@@ -75,6 +80,13 @@
         {
           "microphonePermission": "Yaad needs the microphone to capture spoken reminders.",
           "speechRecognitionPermission": "Yaad uses speech recognition so you can capture reminders by voice."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Yaad uses photos so you can attach a picture of your medicine.",
+          "cameraPermission": "Yaad uses the camera so you can photograph your medicine."
         }
       ],
       [

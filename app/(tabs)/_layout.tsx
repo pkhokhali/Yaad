@@ -3,16 +3,27 @@ import { Tabs } from 'expo-router';
 import { StyleSheet } from 'react-native';
 
 import { colors } from '@/constants/theme';
+import { useResponsive } from '@/hooks/useResponsive';
 
 export default function TabLayout() {
+  const { insets, tabBarHeight, isCompact } = useResponsive();
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.textSubtle,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: [
+          styles.tabBar,
+          {
+            height: tabBarHeight + insets.bottom,
+            paddingBottom: insets.bottom,
+            paddingTop: isCompact ? 2 : 4,
+          },
+        ],
         tabBarLabelStyle: styles.label,
+        tabBarIconStyle: isCompact ? { marginTop: 0 } : undefined,
       }}
     >
       <Tabs.Screen
@@ -42,8 +53,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopColor: colors.borderHairline,
     borderTopWidth: StyleSheet.hairlineWidth,
-    height: 58,
-    paddingTop: 4,
   },
   label: {
     fontSize: 12,

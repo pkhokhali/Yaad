@@ -5,10 +5,13 @@ import { categoryColors, radii } from '@/constants/theme';
 import { Category } from '@/types';
 
 const ICONS: Record<Category, keyof typeof Ionicons.glyphMap> = {
+  medicine: 'medkit',
+  buy: 'cart',
+  doctor: 'heart',
   call: 'call',
+  general: 'bookmark',
   document: 'document-text',
   repeat: 'refresh',
-  general: 'bookmark',
 };
 
 type Props = {

@@ -41,6 +41,11 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
   } catch {
     // column already exists
   }
+  try {
+    await db.execAsync('ALTER TABLE reminders ADD COLUMN image_uri TEXT');
+  } catch {
+    // column already exists
+  }
   return db;
 }
 
