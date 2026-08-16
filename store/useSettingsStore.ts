@@ -18,7 +18,10 @@ type SettingsState = AppSettings & {
 };
 
 function clampAlerts(count: number): number {
-  return Math.max(0, Math.min(6, Math.round(count)));
+  if (!Number.isFinite(count)) return 1;
+  const rounded = Math.round(count);
+  if (rounded > 2) return 2;
+  return Math.max(0, Math.min(2, rounded));
 }
 
 function snapshot(s: SettingsState): AppSettings {
@@ -66,7 +69,7 @@ export const useSettingsStore = create<SettingsState>()(
         if (state.speakAlerts == null) {
           state.speakAlerts = DEFAULT_SETTINGS.speakAlerts;
         }
-        if (state.alertsBeforeDeadline == null) {
+        if (state.alertsBeforeDeadline == null || state.alertsBeforeDeadline > 2) {
           state.alertsBeforeDeadline = DEFAULT_SETTINGS.alertsBeforeDeadline;
         }
         if (state.quietHoursVersion !== 2) {

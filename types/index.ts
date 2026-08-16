@@ -42,7 +42,7 @@ export interface AppSettings {
   quietHoursEnabled: boolean;
   voiceLanguage: VoiceLanguage;
   speakAlerts: boolean;
-  /** How strongly Yaad asks: 0–6 times before, same after if not Done, then daily. */
+  /** 0 Gentle, 1 Standard, 2 Strong. */
   alertsBeforeDeadline: number;
 }
 
@@ -52,6 +52,7 @@ export interface ParsedCapture {
   category: Category;
   rawText: string;
   confident: boolean;
+  repeatDaily: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -62,7 +63,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   quietHoursEnabled: true,
   voiceLanguage: 'en',
   speakAlerts: true,
-  alertsBeforeDeadline: 3,
+  alertsBeforeDeadline: 1,
 };
 
 export function minutesToClockLabel(mins: number): string {

@@ -18,7 +18,7 @@ import { ContentColumn } from '@/components/ContentColumn';
 import { MemoryNodeIcon } from '@/components/MemoryNodeIcon';
 import { brand, colors, radii, spacing } from '@/constants/theme';
 import { useResponsive } from '@/hooks/useResponsive';
-import { careAlertHint } from '@/lib/care/alerts';
+import { ALERT_STRENGTHS } from '@/lib/care/alerts';
 import { promptOfflineLanguageDownload } from '@/lib/services/speechRecognition';
 import { rescheduleOpenReminders } from '@/lib/services/notifications';
 import { openVoiceCapture } from '@/lib/services/voiceCapture';
@@ -44,7 +44,7 @@ export default function SettingsScreen() {
   const notificationSound = useSettingsStore((s) => s.notificationSound);
   const voiceLanguage = useSettingsStore((s) => s.voiceLanguage ?? 'en');
   const alertsBeforeDeadline = useSettingsStore(
-    (s) => s.alertsBeforeDeadline ?? 3,
+    (s) => s.alertsBeforeDeadline ?? 1,
   );
   const setQuietHoursEnabled = useSettingsStore((s) => s.setQuietHoursEnabled);
   const setQuietHours = useSettingsStore((s) => s.setQuietHours);
@@ -82,7 +82,8 @@ export default function SettingsScreen() {
             <View style={{ flex: 1, paddingRight: spacing.md }}>
               <Text style={styles.rowTitle}>Quiet hours</Text>
               <Text style={styles.rowHint}>
-                Defer alerts that fall between these hours
+                Don’t ring in this window. The due-time alert waits until it
+                ends — extras are skipped, not dumped all at once.
               </Text>
             </View>
             <Switch
@@ -145,37 +146,30 @@ export default function SettingsScreen() {
 
         <Text style={styles.section}>How strongly should Yaad remind you?</Text>
         <View style={styles.card}>
-          <View style={styles.rowBetween}>
-            <View style={{ flex: 1, paddingRight: spacing.md }}>
-              <Text style={styles.rowTitle}>Times before and after</Text>
-              <Text style={styles.rowHint}>
-                {careAlertHint(alertsBeforeDeadline)}
-              </Text>
-            </View>
-            <View style={styles.stepper}>
-              <Pressable
-                style={styles.stepperBtn}
-                onPress={() => {
-                  setAlertsBeforeDeadline(alertsBeforeDeadline - 1);
-                  applyScheduleSettings();
-                }}
-                accessibilityLabel="Weaker reminders"
-              >
-                <Ionicons name="remove" size={18} color={colors.text} />
-              </Pressable>
-              <Text style={styles.stepperValue}>{alertsBeforeDeadline}</Text>
-              <Pressable
-                style={styles.stepperBtn}
-                onPress={() => {
-                  setAlertsBeforeDeadline(alertsBeforeDeadline + 1);
-                  applyScheduleSettings();
-                }}
-                accessibilityLabel="Stronger reminders"
-              >
-                <Ionicons name="add" size={18} color={colors.text} />
-              </Pressable>
-            </View>
-          </View>
+          {ALERT_STRENGTHS.map((option, idx) => (
+            <Pressable
+              key={option.value}
+              onPress={() => {
+                setAlertsBeforeDeadline(option.value);
+                applyScheduleSettings();
+              }}
+              style={[
+                styles.choice,
+                idx < ALERT_STRENGTHS.length - 1 && styles.choiceBorder,
+              ]}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.rowTitle}>{option.label}</Text>
+                <Text style={styles.rowHint}>{option.hint}</Text>
+              </View>
+              <View
+                style={[
+                  styles.radio,
+                  alertsBeforeDeadline === option.value && styles.radioOn,
+                ]}
+              />
+            </Pressable>
+          ))}
         </View>
 
         <Text style={styles.section}>Hey Google & shortcuts</Text>
@@ -260,7 +254,7 @@ export default function SettingsScreen() {
           {voiceLanguage === 'en' ? (
             <Text style={styles.fallbackNote}>
               Say the full phrase: “remind me to call mom after 2 minutes”.
-              Hold the mic until you finish speaking.
+              Tap the mic, speak, then tap again.
             </Text>
           ) : null}
           {Platform.OS === 'android' && voiceLanguage !== 'en' ? (

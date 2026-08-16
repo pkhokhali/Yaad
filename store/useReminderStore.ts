@@ -17,6 +17,7 @@ import {
   findNearestUpcoming,
   maybeAdaptUrgency,
   refreshEveningSweep,
+  rescheduleOpenReminders,
   scheduleReminderNotifications,
 } from '@/lib/services/notifications';
 import { getStreak, recordActivity } from '@/lib/services/streak';
@@ -70,7 +71,9 @@ export const useReminderStore = create<ReminderState>((set, get) => ({
       loading: false,
       ready: true,
     });
-    await refreshEveningSweep(useSettingsStore.getState().getSettings());
+    await rescheduleOpenReminders(useSettingsStore.getState().getSettings()).catch(
+      () => undefined,
+    );
   },
 
   refresh: async () => {

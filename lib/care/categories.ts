@@ -1,11 +1,11 @@
 import { Category } from '@/types';
 
 export const CARE_CATEGORIES: Category[] = [
+  'general',
   'medicine',
   'buy',
   'doctor',
   'call',
-  'general',
 ];
 
 export const CATEGORY_LABEL: Record<Category, string> = {
@@ -13,9 +13,9 @@ export const CATEGORY_LABEL: Record<Category, string> = {
   buy: 'Buy',
   doctor: 'Doctor',
   call: 'Call',
-  general: 'Other',
-  document: 'Other',
-  repeat: 'Other',
+  general: 'Task',
+  document: 'Task',
+  repeat: 'Task',
 };
 
 export function normalizeCategory(value: string | null | undefined): Category {

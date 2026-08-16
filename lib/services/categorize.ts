@@ -8,6 +8,8 @@ const DOCTOR_PATTERNS =
   /(?:\b(doctor|dr\.?|hospital|clinic|appointment|check[- ]?up|follow.?up|dentist|physician)\b|डाक्टर|अस्पताल|क्लिनिक|जाँच)/iu;
 const CALL_PATTERNS =
   /(?:\b(call|phone|ring|dial|talk to|speak with)\b|कल\s*गर्|फोन\s*गर्|कुरा\s*गर्)/iu;
+const DAILY_PATTERNS =
+  /(?:\b(every day|everyday|daily|each day|every morning|every evening|every night)\b|हरेक दिन|रोज|प्रतिदिन|दैनिक)/iu;
 
 export function suggestCategory(text: string): Category {
   if (BUY_PATTERNS.test(text)) return 'buy';
@@ -15,4 +17,9 @@ export function suggestCategory(text: string): Category {
   if (DOCTOR_PATTERNS.test(text)) return 'doctor';
   if (CALL_PATTERNS.test(text)) return 'call';
   return 'general';
+}
+
+export function suggestsDailyRepeat(text: string, category: Category): boolean {
+  if (category === 'medicine') return true;
+  return DAILY_PATTERNS.test(text);
 }

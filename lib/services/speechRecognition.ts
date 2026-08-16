@@ -12,7 +12,7 @@ import {
 } from '@/lib/services/voiceLanguages';
 import { VoiceLanguage } from '@/types';
 
-export type SpeechCaptureMode = 'handsFree' | 'hold';
+export type SpeechCaptureMode = 'tap' | 'handsFree';
 
 const SHARED_CONTEXT = [
   'remind me',
@@ -114,15 +114,13 @@ export function contextualStringsFor(
 export function buildSpeechOptions(
   lang: VoiceLanguage,
   locale: string,
-  mode: SpeechCaptureMode,
+  _mode: SpeechCaptureMode,
 ): ExpoSpeechRecognitionOptions {
   const option = getVoiceLanguageOption(lang);
-  const handsFree = mode === 'handsFree';
-
   const options: ExpoSpeechRecognitionOptions = {
     lang: locale,
     interimResults: true,
-    continuous: handsFree,
+    continuous: true,
     maxAlternatives: 3,
     requiresOnDeviceRecognition: false,
     addsPunctuation: true,
@@ -132,16 +130,14 @@ export function buildSpeechOptions(
   };
 
   if (Platform.OS === 'android') {
-    options.androidIntent = handsFree
-      ? 'android.speech.action.VOICE_SEARCH_HANDS_FREE'
-      : 'android.speech.action.RECOGNIZE_SPEECH';
+    options.androidIntent = 'android.speech.action.VOICE_SEARCH_HANDS_FREE';
     options.androidIntentOptions = {
       EXTRA_LANGUAGE_MODEL: 'free_form',
       EXTRA_PREFER_OFFLINE: false,
       EXTRA_ENABLE_BIASING_DEVICE_CONTEXT: true,
-      EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS: 500,
-      EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS: 900,
-      EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS: handsFree ? 2500 : 1600,
+      EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS: 1500,
+      EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS: 4000,
+      EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS: 8000,
     };
   }
 
@@ -156,7 +152,7 @@ export type StartSpeechSessionResult = {
 
 export async function startSpeechSession(
   lang: VoiceLanguage,
-  mode: SpeechCaptureMode,
+  _mode: SpeechCaptureMode = 'tap',
 ): Promise<StartSpeechSessionResult> {
   const perm = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
   if (!perm.granted) {
@@ -176,7 +172,7 @@ export async function startSpeechSession(
   }
 
   ExpoSpeechRecognitionModule.start(
-    buildSpeechOptions(lang, resolved.locale, mode),
+    buildSpeechOptions(lang, resolved.locale, _mode),
   );
 
   return {

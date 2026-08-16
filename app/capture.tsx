@@ -39,7 +39,7 @@ export default function VoiceCaptureScreen() {
         ? '“लुमंकेगु आमा याः कल जाः”'
         : '“remind me to call mom after 2 minutes”';
 
-  const { listening, transcript, hint, busy, startListening, stopListening, langOption } =
+  const { listening, transcript, hint, busy, toggleListening, langOption } =
     useVoiceCapture({
       autoStart: autoListen && !draft,
       handsFree: autoListen && !draft,
@@ -92,16 +92,11 @@ export default function VoiceCaptureScreen() {
         <View style={[styles.center, { paddingHorizontal: gutter }]}>
           <Text style={[styles.title, { fontSize: s(28) }]}>
             {listening
-              ? autoListen
-                ? 'Speak your reminder…'
-                : 'Listening…'
-              : 'Tap to speak'}
+              ? 'Speak your reminder…'
+              : 'Tap the mic, then speak'}
           </Text>
           <Text style={styles.subtitle}>
-            {hint ??
-              (autoListen
-                ? `Try: ${examples} · ${langOption.nativeLabel}`
-                : `Hold the mic, speak, then release · ${langOption.nativeLabel}`)}
+            {hint ?? `Try: ${examples} · ${langOption.nativeLabel}`}
           </Text>
 
           {transcript ? (
@@ -113,8 +108,7 @@ export default function VoiceCaptureScreen() {
           {status ? <Text style={styles.status}>{status}</Text> : null}
 
           <Pressable
-            onPressIn={startListening}
-            onPressOut={stopListening}
+            onPress={toggleListening}
             disabled={busy}
             style={({ pressed }) => [
               styles.micOrb,
@@ -140,10 +134,8 @@ export default function VoiceCaptureScreen() {
 
           <Text style={styles.footerHint}>
             {listening
-              ? autoListen
-                ? 'Yaad saves when you finish speaking'
-                : 'Release when you’re done speaking'
-              : 'Hold the orb, speak, then release'}
+              ? 'Tap the mic again when you’re done'
+              : 'Tap once to start, tap again to save'}
           </Text>
         </View>
       </ContentColumn>

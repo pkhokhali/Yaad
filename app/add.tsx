@@ -42,8 +42,8 @@ export default function AddReminderScreen() {
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
   const [dueAt, setDueAt] = useState(new Date(Date.now() + 60 * 60 * 1000));
-  const [category, setCategory] = useState<Category>('medicine');
-  const [everyDay, setEveryDay] = useState(true);
+  const [category, setCategory] = useState<Category>('general');
+  const [everyDay, setEveryDay] = useState(false);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [parsing, setParsing] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -68,7 +68,7 @@ export default function AddReminderScreen() {
         setTitle(parsed.title);
         setDueAt(parsed.dueAt);
         setCategory(parsed.category);
-        setEveryDay(parsed.category === 'medicine');
+        setEveryDay(parsed.repeatDaily);
         if (params.fromVoice === '1') {
           setNotes(parsed.rawText);
         }
@@ -181,10 +181,12 @@ export default function AddReminderScreen() {
             accessibilityState={{ checked: everyDay }}
           >
             <Text style={[styles.everyDayText, everyDay && styles.everyDayTextOn]}>
-              Every day
+              Daily task
             </Text>
             <Text style={styles.everyDayHint}>
-              {everyDay ? 'Until you mark it Done each day' : 'Once'}
+              {everyDay
+                ? 'Comes back tomorrow after you tap Done'
+                : 'Once — won’t repeat'}
             </Text>
           </Pressable>
 

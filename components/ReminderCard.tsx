@@ -53,7 +53,7 @@ export function ReminderCard({ reminder, highlighted = false, onPress }: Props) 
         </Text>
         <Text style={styles.meta}>
           {formatDue(reminder.due_at)}
-          {reminder.repeat_rule === 'daily' ? ' · Every day' : ''}
+          {reminder.repeat_rule === 'daily' ? ' · Daily' : ''}
           {reminder.repeat_rule === 'weekly' ? ' · Weekly' : ''}
         </Text>
       </View>

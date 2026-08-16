@@ -32,7 +32,14 @@ export default function HomeScreen() {
   const loading = useReminderStore((s) => s.loading);
   const refresh = useReminderStore((s) => s.refresh);
 
-  const open = reminders.filter((r) => !r.is_done);
+  const open = reminders
+    .filter((r) => !r.is_done)
+    .sort((a, b) => {
+      const dailyA = a.repeat_rule === 'daily' || a.repeat_rule === 'weekly' ? 0 : 1;
+      const dailyB = b.repeat_rule === 'daily' || b.repeat_rule === 'weekly' ? 0 : 1;
+      if (dailyA !== dailyB) return dailyA - dailyB;
+      return a.due_at - b.due_at;
+    });
   const done = reminders.filter((r) => r.is_done);
 
   const onRefresh = useCallback(() => {
@@ -83,9 +90,9 @@ export default function HomeScreen() {
         </View>
 
         <View style={[styles.sectionRow, { paddingHorizontal: gutter }]}>
-          <Text style={[styles.sectionTitle, { fontSize: s(18) }]}>
-            Timeline
-          </Text>
+            <Text style={[styles.sectionTitle, { fontSize: s(18) }]}>
+              Today
+            </Text>
           <StreakBadge count={streak} />
         </View>
 
@@ -111,18 +118,35 @@ export default function HomeScreen() {
               <View style={styles.empty}>
                 <Text style={styles.emptyTitle}>Nothing due today</Text>
                 <Text style={styles.emptyBody}>
-                  Medicine, a refill, a doctor visit — type it below or tap the
-                  mic. Stored only on this phone.
+                  Add a daily task, medicine, or a one-time reminder. Type it
+                  below, or tap the mic, speak, then tap again.
                 </Text>
               </View>
             }
-            renderItem={({ item }) => (
-              <ReminderCard
-                reminder={item}
-                highlighted={item.id === highlightId}
-                onPress={() => router.push(`/reminder/${item.id}`)}
-              />
-            )}
+            renderItem={({ item, index }) => {
+              const isDaily =
+                item.repeat_rule === 'daily' || item.repeat_rule === 'weekly';
+              const prev = open[index - 1];
+              const prevDaily =
+                prev != null &&
+                (prev.repeat_rule === 'daily' || prev.repeat_rule === 'weekly');
+              const showGroup =
+                index === 0 || Boolean(prevDaily) !== isDaily;
+              return (
+                <View>
+                  {showGroup ? (
+                    <Text style={styles.groupLabel}>
+                      {isDaily ? 'Daily tasks' : 'Once'}
+                    </Text>
+                  ) : null}
+                  <ReminderCard
+                    reminder={item}
+                    highlighted={item.id === highlightId}
+                    onPress={() => router.push(`/reminder/${item.id}`)}
+                  />
+                </View>
+              );
+            }}
             ItemSeparatorComponent={() => (
               <View style={{ height: spacing.sm }} />
             )}
@@ -133,7 +157,7 @@ export default function HomeScreen() {
                   onPress={() => router.push('/add')}
                 >
                   <View style={styles.addStripe} />
-                  <Text style={styles.addTitle}>Add new entry</Text>
+                  <Text style={styles.addTitle}>Add a task</Text>
                 </Pressable>
                 {done.length > 0 ? (
                   <View style={styles.doneSection}>
@@ -293,5 +317,14 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.6,
     marginBottom: spacing.md,
+  },
+  groupLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textSubtle,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: spacing.sm,
+    marginTop: spacing.xs,
   },
 });

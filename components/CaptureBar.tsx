@@ -13,13 +13,13 @@ import {
 
 import { colors, radii, spacing } from '@/constants/theme';
 import {
+  abortSpeechSession,
   normalizeSpeechTranscript,
   speechErrorMessage,
   startSpeechSession,
   stopSpeechSession,
   TranscriptAccumulator,
 } from '@/lib/services/speechRecognition';
-import { openVoiceCapture, submitVoiceCapture } from '@/lib/services/voiceCapture';
 import {
   getVoiceLanguageOption,
   nextVoiceLanguage,
@@ -32,7 +32,7 @@ type Props = {
 };
 
 const PLACEHOLDERS = {
-  en: 'take medicine at 8...',
+  en: 'walk at 7, take medicine at 8...',
   ne: 'रिमाइन्डर लेख्नुहोस्...',
   new: 'लुमंकेगु च्वयादिसँ...',
 } as const;
@@ -40,14 +40,50 @@ const PLACEHOLDERS = {
 export function CaptureBar({ onSubmitText, gutter = spacing.lg }: Props) {
   const voiceLanguage = useSettingsStore((s) => s.voiceLanguage ?? 'en');
   const setVoiceLanguage = useSettingsStore((s) => s.setVoiceLanguage);
-  const getSettings = useSettingsStore((s) => s.getSettings);
   const langOption = getVoiceLanguageOption(voiceLanguage);
 
   const [text, setText] = useState('');
   const [listening, setListening] = useState(false);
   const [micHint, setMicHint] = useState<string | null>(null);
   const accumulatorRef = useRef(new TranscriptAccumulator());
-  const holdActive = useRef(false);
+  const wantedRef = useRef(false);
+  const startingRef = useRef(false);
+
+  const finishWithTranscript = useCallback(() => {
+    const finalText = normalizeSpeechTranscript(
+      accumulatorRef.current.text || text.trim(),
+      voiceLanguage,
+    );
+    accumulatorRef.current.reset();
+    setText('');
+    if (finalText) {
+      onSubmitText(finalText);
+    } else {
+      setMicHint('Tap the mic, speak, then tap again');
+    }
+  }, [onSubmitText, text, voiceLanguage]);
+
+  const beginSession = useCallback(async () => {
+    if (startingRef.current) return;
+    startingRef.current = true;
+    try {
+      const session = await startSpeechSession(voiceLanguage, 'tap');
+      if (!wantedRef.current) {
+        abortSpeechSession();
+        return;
+      }
+      setMicHint(session.hint ?? 'Listening — tap the mic when you’re done');
+      setListening(true);
+    } catch (err) {
+      wantedRef.current = false;
+      setListening(false);
+      setMicHint(
+        err instanceof Error ? err.message : 'Microphone permission needed',
+      );
+    } finally {
+      startingRef.current = false;
+    }
+  }, [voiceLanguage]);
 
   useSpeechRecognitionEvent('result', (event) => {
     const transcript = accumulatorRef.current.update(event);
@@ -56,26 +92,20 @@ export function CaptureBar({ onSubmitText, gutter = spacing.lg }: Props) {
 
   useSpeechRecognitionEvent('end', () => {
     setListening(false);
-    const finalText = normalizeSpeechTranscript(
-      accumulatorRef.current.text,
-      voiceLanguage,
-    );
-    if (finalText && holdActive.current === false) {
-      submitVoiceCapture(finalText, getSettings()).then((result) => {
-        if (result.status === 'saved') {
-          setMicHint(`Saved · ${result.title}`);
-        }
-      });
-      setText('');
-      accumulatorRef.current.reset();
-    } else if (!finalText) {
-      setMicHint(null);
+    if (wantedRef.current) {
+      beginSession();
+      return;
     }
+    finishWithTranscript();
   });
 
   useSpeechRecognitionEvent('error', (event) => {
+    if (wantedRef.current && event.error === 'no-speech') {
+      beginSession();
+      return;
+    }
+    wantedRef.current = false;
     setListening(false);
-    holdActive.current = false;
     setMicHint(speechErrorMessage(event.error));
   });
 
@@ -87,61 +117,35 @@ export function CaptureBar({ onSubmitText, gutter = spacing.lg }: Props) {
   }, [text, onSubmitText]);
 
   const cycleLanguage = useCallback(() => {
-    if (listening) return;
+    if (listening || wantedRef.current) return;
     setMicHint(null);
     setVoiceLanguage(nextVoiceLanguage(voiceLanguage));
   }, [listening, setVoiceLanguage, voiceLanguage]);
 
-  const startListening = useCallback(async () => {
-    setMicHint(null);
-    holdActive.current = true;
-    accumulatorRef.current.reset();
-    try {
-      const session = await startSpeechSession(voiceLanguage, 'hold');
-      setMicHint(session.hint ?? langOption.hint);
-      setListening(true);
-    } catch (err) {
-      holdActive.current = false;
-      setListening(false);
-      setMicHint(
-        err instanceof Error ? err.message : 'Hold mic in a native build, or type instead',
-      );
-    }
-  }, [langOption, voiceLanguage]);
-
-  const stopListening = useCallback(() => {
-    holdActive.current = false;
-    try {
-      stopSpeechSession();
-    } catch {
-      setListening(false);
-      const finalText = normalizeSpeechTranscript(
-        accumulatorRef.current.text || text.trim(),
-        voiceLanguage,
-      );
-      if (finalText) {
-        submitVoiceCapture(finalText, getSettings()).then((result) => {
-          if (result.status === 'saved') {
-            setMicHint(`Saved · ${result.title}`);
-          }
-        });
-        setText('');
-        accumulatorRef.current.reset();
+  const toggleListening = useCallback(() => {
+    if (wantedRef.current) {
+      wantedRef.current = false;
+      setMicHint(null);
+      try {
+        stopSpeechSession();
+      } catch {
+        setListening(false);
+        finishWithTranscript();
       }
+      return;
     }
-  }, [getSettings, text, voiceLanguage]);
+
+    setMicHint('Listening — tap the mic when you’re done');
+    wantedRef.current = true;
+    accumulatorRef.current.reset();
+    setText('');
+    beginSession();
+  }, [beginSession, finishWithTranscript]);
 
   return (
     <View style={[styles.wrap, { paddingHorizontal: gutter }]}>
       {micHint ? <Text style={styles.hint}>{micHint}</Text> : null}
       <View style={styles.bar}>
-        <Pressable
-          onPress={() => openVoiceCapture()}
-          style={styles.assistBtn}
-          accessibilityLabel="Open hands-free voice capture"
-        >
-          <Ionicons name="sparkles" size={16} color={colors.accent} />
-        </Pressable>
         <TextInput
           style={styles.input}
           placeholder={PLACEHOLDERS[voiceLanguage]}
@@ -170,14 +174,17 @@ export function CaptureBar({ onSubmitText, gutter = spacing.lg }: Props) {
           <Text style={styles.langChipText}>{langOption.short}</Text>
         </Pressable>
         <Pressable
-          onPressIn={startListening}
-          onPressOut={stopListening}
+          onPress={toggleListening}
           style={({ pressed }) => [
             styles.mic,
             listening && styles.micActive,
             pressed && styles.micPressed,
           ]}
-          accessibilityLabel={`Hold to speak a reminder in ${langOption.nativeLabel}`}
+          accessibilityLabel={
+            listening
+              ? 'Stop listening'
+              : `Tap to speak a reminder in ${langOption.nativeLabel}`
+          }
         >
           {listening ? (
             <ActivityIndicator color="#fff" size="small" />
@@ -212,18 +219,10 @@ const styles = StyleSheet.create({
     borderRadius: radii.input,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
-    paddingLeft: spacing.xs,
+    paddingLeft: spacing.md,
     paddingRight: spacing.xs,
     minHeight: 52,
     gap: 4,
-  },
-  assistBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: spacing.xs,
   },
   input: {
     flex: 1,

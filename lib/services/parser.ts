@@ -1,7 +1,7 @@
 import * as chrono from 'chrono-node';
 
 import { formatActionTitle, normalizeReminderTitle } from '@/lib/services/actionCopy';
-import { suggestCategory } from '@/lib/services/categorize';
+import { suggestCategory, suggestsDailyRepeat } from '@/lib/services/categorize';
 import { listRecentReminders } from '@/lib/db/reminders';
 import { ParsedCapture, Reminder } from '@/types';
 
@@ -334,15 +334,17 @@ export async function parseCaptureText(
   }
 
   const category = suggestCategory(text) || referenced?.category || 'general';
+  const repeatDaily = suggestsDailyRepeat(text, category);
 
   return {
     title: formatActionTitle(title, category),
     dueAt,
     category,
     rawText: text,
+    repeatDaily,
     confident:
       title.trim().length >= 3 &&
       title.trim().toLowerCase() !== 'reminder' &&
-      (local.matched || Boolean(chronoDate)),
+      (local.matched || Boolean(chronoDate) || repeatDaily),
   };
 }

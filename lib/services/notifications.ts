@@ -12,11 +12,10 @@ import { clearLogsForReminder, logNotification } from '@/lib/db/notificationLog'
 import {
   createReminder,
   getReminderById,
-  listOpenThrough,
   listReminders,
   updateReminder,
 } from '@/lib/db/reminders';
-import { careAlertOffsets, DAILY_UNTIL_DONE_DAYS } from '@/lib/care/alerts';
+import { careAlertOffsets, DAILY_UNTIL_DONE_DAYS, MIN_ALERT_GAP_MS } from '@/lib/care/alerts';
 import { AppSettings, Reminder } from '@/types';
 
 Notifications.setNotificationHandler({
@@ -141,29 +140,30 @@ function minutesOfDay(date: Date): number {
   return date.getHours() * 60 + date.getMinutes();
 }
 
-/** Defer fire times that land inside quiet hours to quietHoursEnd (same or next day). */
+function isInQuietHours(fireAt: number, settings: AppSettings): boolean {
+  if (!settings.quietHoursEnabled) return false;
+
+  const minutes = minutesOfDay(new Date(fireAt));
+  const start = settings.quietHoursStart;
+  const end = settings.quietHoursEnd;
+
+  if (start === end) return false;
+  return start < end
+    ? minutes >= start && minutes < end
+    : minutes >= start || minutes < end;
+}
+
+/** Defer the due-time alert out of quiet hours. Extra nudges in quiet hours are skipped. */
 export function adjustForQuietHours(
   fireAt: number,
   settings: AppSettings,
   isUrgent = false,
 ): number {
   if (!settings.quietHoursEnabled || isUrgent) return fireAt;
-
-  const date = new Date(fireAt);
-  const minutes = minutesOfDay(date);
-  const start = settings.quietHoursStart;
-  const end = settings.quietHoursEnd;
-
-  const inQuiet =
-    start === end
-      ? false
-      : start < end
-        ? minutes >= start && minutes < end
-        : minutes >= start || minutes < end;
-
-  if (!inQuiet) return fireAt;
+  if (!isInQuietHours(fireAt, settings)) return fireAt;
 
   const adjusted = new Date(fireAt);
+  const end = settings.quietHoursEnd;
   adjusted.setHours(Math.floor(end / 60), end % 60, 0, 0);
   if (adjusted.getTime() <= fireAt) {
     adjusted.setDate(adjusted.getDate() + 1);
@@ -298,48 +298,55 @@ export async function scheduleReminderNotifications(
   }
 
   const isUrgent = Boolean(reminder.is_urgent);
-  const alertAt = adjustForQuietHours(reminder.due_at, settings, isUrgent);
-  const { before, after } = careAlertOffsets(settings.alertsBeforeDeadline ?? 3);
+  const { before, after } = careAlertOffsets(settings.alertsBeforeDeadline ?? 1);
+  const booked: number[] = [];
 
-  await Promise.all(
-    before.map((minutesBefore, index) =>
-      scheduleOne(
-        reminder,
-        `pre${index}`,
-        adjustForQuietHours(
-          reminder.due_at - minutesBefore * 60 * 1000,
-          settings,
-          isUrgent,
-        ),
-        settings,
-      ),
-    ),
+  const takeSlot = (when: number): number | null => {
+    if (when <= Date.now() + 1500) return null;
+    if (booked.some((t) => Math.abs(t - when) < MIN_ALERT_GAP_MS)) return null;
+    booked.push(when);
+    return when;
+  };
+
+  for (const [index, minutesBefore] of before.entries()) {
+    const raw = reminder.due_at - minutesBefore * 60 * 1000;
+    if (isInQuietHours(raw, settings) && !isUrgent) continue;
+    const when = takeSlot(raw);
+    if (when != null) {
+      await scheduleOne(reminder, `pre${index}`, when, settings);
+    }
+  }
+
+  const dueWhen = takeSlot(
+    isUrgent
+      ? reminder.due_at
+      : adjustForQuietHours(reminder.due_at, settings, isUrgent),
   );
+  if (dueWhen != null) {
+    await scheduleOne(reminder, 'alert', dueWhen, settings);
+  }
 
-  await scheduleOne(reminder, 'alert', alertAt, settings);
-
-  await Promise.all(
-    after.map((minutesAfter, index) =>
-      scheduleOne(
-        reminder,
-        `post${index}`,
-        adjustForQuietHours(alertAt + minutesAfter * 60 * 1000, settings, isUrgent),
-        settings,
-      ),
-    ),
-  );
+  const dueBase = dueWhen ?? reminder.due_at;
+  for (const [index, minutesAfter] of after.entries()) {
+    const raw = dueBase + minutesAfter * 60 * 1000;
+    if (isInQuietHours(raw, settings) && !isUrgent) continue;
+    const when = takeSlot(raw);
+    if (when != null) {
+      await scheduleOne(reminder, `post${index}`, when, settings);
+    }
+  }
 
   if (!reminder.repeat_rule) {
     const due = new Date(reminder.due_at);
     for (let day = 1; day <= DAILY_UNTIL_DONE_DAYS; day += 1) {
       const next = new Date(due);
       next.setDate(due.getDate() + day);
-      await scheduleOne(
-        reminder,
-        `daily${day - 1}`,
-        adjustForQuietHours(next.getTime(), settings, isUrgent),
-        settings,
-      );
+      const raw = next.getTime();
+      if (isInQuietHours(raw, settings) && !isUrgent) continue;
+      const when = takeSlot(raw);
+      if (when != null) {
+        await scheduleOne(reminder, `daily${day - 1}`, when, settings);
+      }
     }
   }
 
@@ -360,67 +367,13 @@ export async function rescheduleOpenReminders(
   }
 }
 
-function nextSweepAt(settings: AppSettings): Date {
-  const d = new Date();
-  let hour = 20;
-  if (settings.quietHoursEnabled) {
-    const start = settings.quietHoursStart;
-    const end = settings.quietHoursEnd;
-    const minutes = hour * 60;
-    const inQuiet =
-      start === end
-        ? false
-        : start < end
-          ? minutes >= start && minutes < end
-          : minutes >= start || minutes < end;
-    if (inQuiet) {
-      hour = Math.floor(((start + 1440 - 60) % 1440) / 60);
-    }
-  }
-  d.setHours(hour, 0, 0, 0);
-  if (d.getTime() <= Date.now() + 60_000) {
-    d.setDate(d.getDate() + 1);
-  }
-  return d;
-}
-
-/** One evening interrupt listing what's still open. Rescheduled on every change. */
+/** Evening digest is disabled — one reminder should not become a pile of alerts. */
 export async function refreshEveningSweep(
-  settings: AppSettings,
+  _settings: AppSettings,
 ): Promise<void> {
   await Notifications.cancelScheduledNotificationAsync(SWEEP_ID).catch(
     () => undefined,
   );
-
-  const end = new Date();
-  end.setHours(23, 59, 59, 999);
-  const open = await listOpenThrough(end.getTime());
-  if (open.length === 0) return;
-
-  const when = nextSweepAt(settings);
-  const body =
-    open.length === 1
-      ? `Still with you: ${open[0].title}`
-      : `${open.length} still open · ${open
-          .slice(0, 2)
-          .map((r) => r.title)
-          .join(', ')}`;
-
-  await Notifications.scheduleNotificationAsync({
-    identifier: SWEEP_ID,
-    content: {
-      title: 'Yaad',
-      body,
-      sound: settings.notificationSound === 'subtle' ? undefined : 'default',
-      data: { kind: 'sweep' },
-      ...(Platform.OS === 'android' ? { channelId: 'yaad-nudges' } : {}),
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DATE,
-      date: when,
-      channelId: Platform.OS === 'android' ? 'yaad-nudges' : undefined,
-    },
-  });
 }
 
 export function nextOccurrenceDueAt(

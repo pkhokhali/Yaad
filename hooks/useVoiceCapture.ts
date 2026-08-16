@@ -9,7 +9,6 @@ import {
   abortSpeechSession,
   normalizeSpeechTranscript,
   speechErrorMessage,
-  SpeechCaptureMode,
   startSpeechSession,
   stopSpeechSession,
   TranscriptAccumulator,
@@ -28,8 +27,6 @@ export function useVoiceCapture(options: Options = {}) {
   const voiceLanguage = useSettingsStore((s) => s.voiceLanguage ?? 'en');
   const getSettings = useSettingsStore((s) => s.getSettings);
   const langOption = getVoiceLanguageOption(voiceLanguage);
-  const mode: SpeechCaptureMode =
-    options.handsFree || options.autoStart ? 'handsFree' : 'hold';
 
   const [listening, setListening] = useState(false);
   const [transcript, setTranscript] = useState('');
@@ -37,6 +34,8 @@ export function useVoiceCapture(options: Options = {}) {
   const [busy, setBusy] = useState(false);
 
   const accumulatorRef = useRef(new TranscriptAccumulator());
+  const wantedRef = useRef(false);
+  const startingRef = useRef(false);
   const startedRef = useRef(false);
   const submittingRef = useRef(false);
   const optionsRef = useRef(options);
@@ -66,6 +65,29 @@ export function useVoiceCapture(options: Options = {}) {
     [getSettings, voiceLanguage],
   );
 
+  const beginSession = useCallback(async () => {
+    if (startingRef.current || !wantedRef.current) return;
+    startingRef.current = true;
+    try {
+      const session = await startSpeechSession(voiceLanguage, 'tap');
+      if (!wantedRef.current) {
+        abortSpeechSession();
+        return;
+      }
+      setHint(session.hint ?? 'Listening — tap when you’re done');
+      setListening(true);
+    } catch (err) {
+      wantedRef.current = false;
+      setListening(false);
+      const message =
+        err instanceof Error ? err.message : 'Microphone permission needed';
+      setHint(message);
+      optionsRef.current.onError?.(message);
+    } finally {
+      startingRef.current = false;
+    }
+  }, [voiceLanguage]);
+
   useSpeechRecognitionEvent('result', (event: ExpoSpeechRecognitionResultEvent) => {
     const text = accumulatorRef.current.update(event);
     if (text) setTranscript(text);
@@ -73,13 +95,20 @@ export function useVoiceCapture(options: Options = {}) {
 
   useSpeechRecognitionEvent('end', () => {
     setListening(false);
-    const text = accumulatorRef.current.text;
-    if (text) {
-      submitTranscript(text);
+    if (wantedRef.current) {
+      beginSession();
+      return;
     }
+    const text = accumulatorRef.current.text;
+    if (text) submitTranscript(text);
   });
 
   useSpeechRecognitionEvent('error', (event) => {
+    if (wantedRef.current && event.error === 'no-speech') {
+      beginSession();
+      return;
+    }
+    wantedRef.current = false;
     setListening(false);
     const message = speechErrorMessage(event.error);
     setHint(message);
@@ -87,27 +116,17 @@ export function useVoiceCapture(options: Options = {}) {
   });
 
   const startListening = useCallback(async () => {
-    if (listening || busy) return;
-
-    setHint(null);
+    if (wantedRef.current || busy) return;
+    setHint('Listening — tap when you’re done');
+    wantedRef.current = true;
     accumulatorRef.current.reset();
     setTranscript('');
-
-    try {
-      const session = await startSpeechSession(voiceLanguage, mode);
-      setHint(session.hint);
-      setListening(true);
-    } catch (err) {
-      setListening(false);
-      const message =
-        err instanceof Error ? err.message : 'Voice needs a native build';
-      setHint(message);
-      optionsRef.current.onError?.(message);
-    }
-  }, [busy, listening, mode, voiceLanguage]);
+    await beginSession();
+  }, [beginSession, busy]);
 
   const stopListening = useCallback(() => {
-    if (!listening) return;
+    if (!wantedRef.current && !listening) return;
+    wantedRef.current = false;
     try {
       stopSpeechSession();
     } catch {
@@ -117,11 +136,20 @@ export function useVoiceCapture(options: Options = {}) {
     }
   }, [listening, submitTranscript]);
 
+  const toggleListening = useCallback(() => {
+    if (wantedRef.current || listening) {
+      stopListening();
+      return;
+    }
+    startListening();
+  }, [listening, startListening, stopListening]);
+
   useEffect(() => {
     if (!options.autoStart || startedRef.current) return;
     startedRef.current = true;
     startListening();
     return () => {
+      wantedRef.current = false;
       abortSpeechSession();
     };
   }, [options.autoStart, startListening]);
@@ -133,6 +161,7 @@ export function useVoiceCapture(options: Options = {}) {
     busy,
     startListening,
     stopListening,
+    toggleListening,
     langOption,
     voiceLanguage,
   };
