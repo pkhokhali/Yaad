@@ -98,6 +98,8 @@ export const radii = {
 export const brand = {
   motto: 'Don\u2019t remember. Just Yaad.',
   mottoNe: 'नबिर्सनुहोस्। याद मात्र।',
+  /** Devanagari + Newari script names shown on splash. */
+  localNames: 'याद · लुमं',
   tagline: 'Everything lives on your phone alone.',
   taglineNe: 'सबै कुरा यसै फोनमा मात्र रहन्छ।',
   voiceTagline: 'Voice-first. 100% on-device.',

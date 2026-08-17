@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
+import { clampAlertCount, migrateLegacyAlertStrength } from '@/lib/care/alerts';
 import { AppSettings, DEFAULT_SETTINGS, ScaleMode, ThemeName, UrgencyCurve, VoiceLanguage } from '@/types';
 
 type SettingsState = AppSettings & {
@@ -13,19 +14,13 @@ type SettingsState = AppSettings & {
   setNotificationSound: (sound: AppSettings['notificationSound']) => void;
   setVoiceLanguage: (voiceLanguage: VoiceLanguage) => void;
   setSpeakAlerts: (speakAlerts: boolean) => void;
-  setAlertsBeforeDeadline: (count: number) => void;
+  setAlertsBeforeCount: (count: number) => void;
+  setAlertsAfterCount: (count: number) => void;
   setAppearanceTheme: (appearanceTheme: ThemeName) => void;
   setAppearanceScale: (appearanceScale: ScaleMode) => void;
   completeOnboarding: (setupFor: 'me' | 'family') => void;
   getSettings: () => AppSettings;
 };
-
-function clampAlerts(count: number): number {
-  if (!Number.isFinite(count)) return 1;
-  const rounded = Math.round(count);
-  if (rounded > 2) return 2;
-  return Math.max(0, Math.min(2, rounded));
-}
 
 function snapshot(s: SettingsState): AppSettings {
   return {
@@ -36,8 +31,11 @@ function snapshot(s: SettingsState): AppSettings {
     quietHoursEnabled: s.quietHoursEnabled,
     voiceLanguage: s.voiceLanguage ?? DEFAULT_SETTINGS.voiceLanguage,
     speakAlerts: s.speakAlerts ?? DEFAULT_SETTINGS.speakAlerts,
-    alertsBeforeDeadline: clampAlerts(
-      s.alertsBeforeDeadline ?? DEFAULT_SETTINGS.alertsBeforeDeadline,
+    alertsBeforeCount: clampAlertCount(
+      s.alertsBeforeCount ?? DEFAULT_SETTINGS.alertsBeforeCount,
+    ),
+    alertsAfterCount: clampAlertCount(
+      s.alertsAfterCount ?? DEFAULT_SETTINGS.alertsAfterCount,
     ),
     appearanceTheme: s.appearanceTheme ?? DEFAULT_SETTINGS.appearanceTheme,
     appearanceScale: s.appearanceScale ?? DEFAULT_SETTINGS.appearanceScale,
@@ -60,8 +58,10 @@ export const useSettingsStore = create<SettingsState>()(
       setNotificationSound: (notificationSound) => set({ notificationSound }),
       setVoiceLanguage: (voiceLanguage) => set({ voiceLanguage }),
       setSpeakAlerts: (speakAlerts) => set({ speakAlerts }),
-      setAlertsBeforeDeadline: (count) =>
-        set({ alertsBeforeDeadline: clampAlerts(count) }),
+      setAlertsBeforeCount: (count) =>
+        set({ alertsBeforeCount: clampAlertCount(count) }),
+      setAlertsAfterCount: (count) =>
+        set({ alertsAfterCount: clampAlertCount(count) }),
       setAppearanceTheme: (appearanceTheme) => set({ appearanceTheme }),
       setAppearanceScale: (appearanceScale) => set({ appearanceScale }),
       completeOnboarding: (setupFor) =>
@@ -89,9 +89,23 @@ export const useSettingsStore = create<SettingsState>()(
         if (state.speakAlerts == null) {
           state.speakAlerts = DEFAULT_SETTINGS.speakAlerts;
         }
-        if (state.alertsBeforeDeadline == null || state.alertsBeforeDeadline > 2) {
-          state.alertsBeforeDeadline = DEFAULT_SETTINGS.alertsBeforeDeadline;
+        if (
+          state.alertsBeforeCount == null &&
+          state.alertsAfterCount == null &&
+          state.alertsBeforeDeadline != null
+        ) {
+          const migrated = migrateLegacyAlertStrength(state.alertsBeforeDeadline);
+          state.alertsBeforeCount = migrated.before;
+          state.alertsAfterCount = migrated.after;
         }
+        if (state.alertsBeforeCount == null) {
+          state.alertsBeforeCount = DEFAULT_SETTINGS.alertsBeforeCount;
+        }
+        if (state.alertsAfterCount == null) {
+          state.alertsAfterCount = DEFAULT_SETTINGS.alertsAfterCount;
+        }
+        state.alertsBeforeCount = clampAlertCount(state.alertsBeforeCount);
+        state.alertsAfterCount = clampAlertCount(state.alertsAfterCount);
         if (state.appearanceTheme !== 'normal' && state.appearanceTheme !== 'dark') {
           state.appearanceTheme = DEFAULT_SETTINGS.appearanceTheme;
         }
@@ -120,7 +134,8 @@ export const useSettingsStore = create<SettingsState>()(
         quietHoursEnabled: state.quietHoursEnabled,
         voiceLanguage: state.voiceLanguage,
         speakAlerts: state.speakAlerts,
-        alertsBeforeDeadline: state.alertsBeforeDeadline,
+        alertsBeforeCount: state.alertsBeforeCount,
+        alertsAfterCount: state.alertsAfterCount,
         appearanceTheme: state.appearanceTheme,
         appearanceScale: state.appearanceScale,
         onboardingComplete: state.onboardingComplete,

@@ -18,6 +18,10 @@ export const CATEGORY_LABEL: Record<Category, string> = {
   repeat: 'Task',
 };
 
+export function categorySupportsPhoto(category: Category): boolean {
+  return category === 'medicine';
+}
+
 export function normalizeCategory(value: string | null | undefined): Category {
   if (value === 'medicine' || value === 'buy' || value === 'doctor') {
     return value;

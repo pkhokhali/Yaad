@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AdBanner } from '@/components/AdBanner';
 import { CaptureBar } from '@/components/CaptureBar';
 import { ContentColumn } from '@/components/ContentColumn';
 import { HeroReminderCard } from '@/components/HeroReminderCard';
@@ -207,6 +208,7 @@ export default function HomeScreen() {
               router.push({ pathname: '/add', params: { draft: text } })
             }
           />
+          <AdBanner />
         </ContentColumn>
       </KeyboardAvoidingView>
     </SafeAreaView>

@@ -19,7 +19,10 @@ import { ContentColumn } from '@/components/ContentColumn';
 import { MemoryNodeIcon } from '@/components/MemoryNodeIcon';
 import { brand, radii, spacing } from '@/constants/theme';
 import { useResponsive } from '@/hooks/useResponsive';
-import { ALERT_STRENGTHS } from '@/lib/care/alerts';
+import {
+  MAX_ALERTS_EACH_SIDE,
+  careAlertSummary,
+} from '@/lib/care/alerts';
 import { useCopy } from '@/lib/i18n/copy';
 import { promptOfflineLanguageDownload } from '@/lib/services/speechRecognition';
 import { rescheduleOpenReminders } from '@/lib/services/notifications';
@@ -40,6 +43,110 @@ import {
 function applyScheduleSettings() {
   rescheduleOpenReminders(useSettingsStore.getState().getSettings()).catch(
     () => undefined,
+  );
+}
+
+const NOTIFICATION_STYLE_OPTIONS = [
+  {
+    value: 'default' as const,
+    label: 'Default',
+    hint: 'Normal banner and sound. Spoken read-out follows the Speak alerts toggle below.',
+  },
+  {
+    value: 'subtle' as const,
+    label: 'Subtle',
+    hint: 'Silent — banner only, no chime and no spoken alert. Best in meetings or at night.',
+  },
+  {
+    value: 'prominent' as const,
+    label: 'Prominent',
+    hint: 'Highest priority banner. Use with Speak alerts for the loudest on-device read-out.',
+  },
+];
+
+function AlertCountRow({
+  label,
+  hint,
+  value,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  value: number;
+  onChange: (count: number) => void;
+}) {
+  const { colors } = useTheme();
+  const { scale } = useScale();
+  return (
+    <View style={{ paddingVertical: spacing.sm }}>
+      <Text style={{ color: colors.text, fontWeight: '600', fontSize: 15 }}>
+        {label}
+      </Text>
+      <Text
+        style={{
+          color: colors.textMuted,
+          fontSize: 13,
+          lineHeight: 18,
+          marginTop: 4,
+          marginBottom: spacing.md,
+        }}
+      >
+        {hint}
+      </Text>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <Pressable
+          accessibilityLabel={`Decrease ${label}`}
+          disabled={value <= 0}
+          onPress={() => onChange(value - 1)}
+          style={{
+            width: scale.minHitTarget,
+            height: scale.minHitTarget,
+            borderRadius: scale.radius,
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderWidth: 1,
+            borderColor: colors.border,
+            opacity: value <= 0 ? 0.35 : 1,
+          }}
+        >
+          <Ionicons name="remove" size={20} color={colors.text} />
+        </Pressable>
+        <Text
+          style={{
+            color: colors.text,
+            fontSize: 28,
+            fontWeight: '700',
+            minWidth: 48,
+            textAlign: 'center',
+          }}
+        >
+          {value}
+        </Text>
+        <Pressable
+          accessibilityLabel={`Increase ${label}`}
+          disabled={value >= MAX_ALERTS_EACH_SIDE}
+          onPress={() => onChange(value + 1)}
+          style={{
+            width: scale.minHitTarget,
+            height: scale.minHitTarget,
+            borderRadius: scale.radius,
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderWidth: 1,
+            borderColor: colors.border,
+            opacity: value >= MAX_ALERTS_EACH_SIDE ? 0.35 : 1,
+          }}
+        >
+          <Ionicons name="add" size={20} color={colors.text} />
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
@@ -102,18 +209,18 @@ export default function MeScreen() {
   const quietHoursEnd = useSettingsStore((s) => s.quietHoursEnd);
   const notificationSound = useSettingsStore((s) => s.notificationSound);
   const voiceLanguage = useSettingsStore((s) => s.voiceLanguage ?? 'en');
-  const alertsBeforeDeadline = useSettingsStore(
-    (s) => s.alertsBeforeDeadline ?? 1,
+  const alertsBeforeCount = useSettingsStore(
+    (s) => s.alertsBeforeCount ?? 0,
   );
+  const alertsAfterCount = useSettingsStore((s) => s.alertsAfterCount ?? 1);
   const setQuietHoursEnabled = useSettingsStore((s) => s.setQuietHoursEnabled);
   const setQuietHours = useSettingsStore((s) => s.setQuietHours);
   const setNotificationSound = useSettingsStore((s) => s.setNotificationSound);
   const setVoiceLanguage = useSettingsStore((s) => s.setVoiceLanguage);
   const speakAlerts = useSettingsStore((s) => s.speakAlerts ?? true);
   const setSpeakAlerts = useSettingsStore((s) => s.setSpeakAlerts);
-  const setAlertsBeforeDeadline = useSettingsStore(
-    (s) => s.setAlertsBeforeDeadline,
-  );
+  const setAlertsBeforeCount = useSettingsStore((s) => s.setAlertsBeforeCount);
+  const setAlertsAfterCount = useSettingsStore((s) => s.setAlertsAfterCount);
   const [picking, setPicking] = useState<'start' | 'end' | null>(null);
 
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -252,32 +359,40 @@ export default function MeScreen() {
             ) : null}
           </View>
 
-          <Text style={styles.section}>How strongly should Yaad remind you?</Text>
+          <Text style={styles.section}>Reminder alerts</Text>
           <View style={styles.card}>
-            {ALERT_STRENGTHS.map((option, idx) => (
-              <Pressable
-                key={option.value}
-                onPress={() => {
-                  setAlertsBeforeDeadline(option.value);
-                  applyScheduleSettings();
-                }}
-                style={[
-                  styles.choice,
-                  idx < ALERT_STRENGTHS.length - 1 && styles.choiceBorder,
-                ]}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.rowTitle}>{option.label}</Text>
-                  <Text style={styles.rowHint}>{option.hint}</Text>
-                </View>
-                <View
-                  style={[
-                    styles.radio,
-                    alertsBeforeDeadline === option.value && styles.radioOn,
-                  ]}
-                />
-              </Pressable>
-            ))}
+            <Text style={[styles.rowHint, { marginBottom: spacing.lg }]}>
+              Standard is one alert at the due time plus one follow-up if you
+              have not tapped Done. Adjust each side up to {MAX_ALERTS_EACH_SIDE}.
+            </Text>
+            <AlertCountRow
+              label="Before due time"
+              hint="Extra nudges leading up to the deadline (15–180 min before)."
+              value={alertsBeforeCount}
+              onChange={(count) => {
+                setAlertsBeforeCount(count);
+                applyScheduleSettings();
+              }}
+            />
+            <View
+              style={{
+                borderBottomWidth: StyleSheet.hairlineWidth,
+                borderBottomColor: colors.borderHairline,
+                marginVertical: spacing.md,
+              }}
+            />
+            <AlertCountRow
+              label="After due if not Done"
+              hint="Follow-ups if the reminder is still open (15–120 min after)."
+              value={alertsAfterCount}
+              onChange={(count) => {
+                setAlertsAfterCount(count);
+                applyScheduleSettings();
+              }}
+            />
+            <Text style={[styles.rowHint, { marginTop: spacing.lg }]}>
+              {careAlertSummary(alertsBeforeCount, alertsAfterCount)}
+            </Text>
           </View>
 
           <Text style={styles.section}>Hey Google & shortcuts</Text>
@@ -378,13 +493,10 @@ export default function MeScreen() {
 
           <Text style={styles.section}>Notification style</Text>
           <View style={styles.card}>
-            {(
-              [
-                { value: 'default', label: 'Default' },
-                { value: 'subtle', label: 'Subtle' },
-                { value: 'prominent', label: 'Prominent' },
-              ] as const
-            ).map((s, idx, arr) => (
+            <Text style={[styles.rowHint, { marginBottom: spacing.md }]}>
+              How loud and visible alerts feel on your phone.
+            </Text>
+            {NOTIFICATION_STYLE_OPTIONS.map((s, idx, arr) => (
               <Pressable
                 key={s.value}
                 onPress={() => setNotificationSound(s.value)}
@@ -393,7 +505,10 @@ export default function MeScreen() {
                   idx < arr.length - 1 && styles.choiceBorder,
                 ]}
               >
-                <Text style={styles.rowTitle}>{s.label}</Text>
+                <View style={{ flex: 1, paddingRight: spacing.md }}>
+                  <Text style={styles.rowTitle}>{s.label}</Text>
+                  <Text style={styles.rowHint}>{s.hint}</Text>
+                </View>
                 <View
                   style={[
                     styles.radio,

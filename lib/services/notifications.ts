@@ -60,15 +60,6 @@ export async function registerNotificationCategories(): Promise<void> {
       buttonTitle: 'Snooze 30m',
       options: { opensAppToForeground: false },
     },
-    {
-      identifier: 'voice',
-      buttonTitle: 'Voice',
-      textInput: {
-        placeholder: 'done, snooze, call…',
-        submitButtonTitle: 'Go',
-      },
-      options: { opensAppToForeground: false },
-    },
   ]);
 
   await Notifications.setNotificationCategoryAsync(CATEGORY_CALL, [
@@ -222,6 +213,7 @@ async function scheduleOne(
   const isInterrupt =
     (reminder.category === 'call' || reminder.category === 'medicine') &&
     (tier === 'alert' || tier === 'post0');
+  const isProminent = settings.notificationSound === 'prominent';
   const useSpokenSound =
     settings.speakAlerts &&
     !isNudge &&
@@ -251,7 +243,7 @@ async function scheduleOne(
       title,
       body,
       sound: androidSound,
-      priority: isInterrupt ? 'max' : 'high',
+      priority: isInterrupt || isProminent ? 'max' : 'high',
       sticky: isInterrupt,
       categoryIdentifier: categoryFor(reminder),
       data: {
@@ -298,7 +290,10 @@ export async function scheduleReminderNotifications(
   }
 
   const isUrgent = Boolean(reminder.is_urgent);
-  const { before, after } = careAlertOffsets(settings.alertsBeforeDeadline ?? 1);
+  const { before, after } = careAlertOffsets(
+    settings.alertsBeforeCount ?? 0,
+    settings.alertsAfterCount ?? 1,
+  );
   const booked: number[] = [];
 
   const takeSlot = (when: number): number | null => {

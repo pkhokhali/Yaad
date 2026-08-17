@@ -1,7 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker, {
-  DateTimePickerEvent,
-} from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -20,9 +16,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CategoryChip } from '@/components/CategoryChip';
 import { ChecklistRows } from '@/components/ChecklistRows';
 import { ContentColumn } from '@/components/ContentColumn';
+import { DueDateTimePicker } from '@/components/DueDateTimePicker';
 import { PhotoAttach } from '@/components/PhotoAttach';
 import { radii, spacing } from '@/constants/theme';
-import { CARE_CATEGORIES, CATEGORY_LABEL } from '@/lib/care/categories';
+import { CARE_CATEGORIES, CATEGORY_LABEL, categorySupportsPhoto } from '@/lib/care/categories';
 import { persistReminderPhoto } from '@/lib/care/photos';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useCopy } from '@/lib/i18n/copy';
@@ -56,7 +53,6 @@ export default function AddReminderScreen() {
   const [items, setItems] = useState<ChecklistItem[] | undefined>();
   const [parsing, setParsing] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [showPicker, setShowPicker] = useState(Platform.OS === 'ios');
 
   const styles = useMemo(() => makeAddStyles(colors), [colors]);
 
@@ -92,11 +88,6 @@ export default function AddReminderScreen() {
       cancelled = true;
     };
   }, [draft, params.fromVoice]);
-
-  const onChangeDate = (_: DateTimePickerEvent, date?: Date) => {
-    if (Platform.OS === 'android') setShowPicker(false);
-    if (date) setDueAt(date);
-  };
 
   const save = async () => {
     if (!title.trim()) return;
@@ -178,29 +169,11 @@ export default function AddReminderScreen() {
           ) : null}
 
           <Text style={[styles.label, { marginTop: spacing.lg }]}>When</Text>
-          <Pressable
-            style={styles.whenRow}
-            onPress={() => setShowPicker(true)}
-          >
-            <Ionicons name="time-outline" size={18} color={colors.accent} />
-            <Text style={styles.whenText}>
-              {dueAt.toLocaleString([], {
-                weekday: 'short',
-                month: 'short',
-                day: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit',
-              })}
-            </Text>
-          </Pressable>
-          {showPicker ? (
-            <DateTimePicker
-              value={dueAt}
-              mode="datetime"
-              onChange={onChangeDate}
-              minimumDate={new Date()}
-            />
-          ) : null}
+          <DueDateTimePicker
+            value={dueAt}
+            onChange={setDueAt}
+            minimumDate={new Date()}
+          />
 
           <Pressable
             style={[styles.everyDay, everyDay && styles.everyDayOn]}
@@ -250,19 +223,13 @@ export default function AddReminderScreen() {
             })}
           </View>
 
-          <PhotoAttach
-            uri={photoUri}
-            onChange={setPhotoUri}
-            prompt={
-              category === 'medicine'
-                ? 'Picture of the medicine'
-                : category === 'buy'
-                  ? 'Picture of what to buy'
-                  : category === 'doctor'
-                    ? 'Picture of the appointment'
-                    : 'Add a photo'
-            }
-          />
+          {categorySupportsPhoto(category) ? (
+            <PhotoAttach
+              uri={photoUri}
+              onChange={setPhotoUri}
+              prompt="Picture of the medicine"
+            />
+          ) : null}
 
           <Text style={[styles.label, { marginTop: spacing.lg }]}>Notes</Text>
           <TextInput
@@ -324,13 +291,6 @@ function makeAddStyles(colors: ReturnType<typeof useTheme>['colors']) {
     color: colors.text,
     paddingVertical: spacing.sm,
   },
-  whenRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
-  },
-  whenText: { fontSize: 16, color: colors.text, fontWeight: '500' },
   everyDay: {
     marginTop: spacing.md,
     paddingVertical: spacing.md,

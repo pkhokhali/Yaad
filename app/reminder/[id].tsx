@@ -1,7 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker, {
-  DateTimePickerEvent,
-} from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -21,9 +17,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CategoryChip } from '@/components/CategoryChip';
 import { ChecklistRows } from '@/components/ChecklistRows';
 import { ContentColumn } from '@/components/ContentColumn';
+import { DueDateTimePicker } from '@/components/DueDateTimePicker';
 import { PhotoAttach } from '@/components/PhotoAttach';
 import { radii, spacing } from '@/constants/theme';
-import { CARE_CATEGORIES, CATEGORY_LABEL, normalizeCategory } from '@/lib/care/categories';
+import { CARE_CATEGORIES, CATEGORY_LABEL, categorySupportsPhoto, normalizeCategory } from '@/lib/care/categories';
 import { persistReminderPhoto } from '@/lib/care/photos';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useCopy } from '@/lib/i18n/copy';
@@ -56,7 +53,6 @@ export default function ReminderDetailScreen() {
   const [category, setCategory] = useState<Category>('medicine');
   const [repeatRule, setRepeatRule] = useState<RepeatRule>(null);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
-  const [showPicker, setShowPicker] = useState(false);
   const [busy, setBusy] = useState(false);
   const styles = useMemo(() => makeReminderStyles(colors), [colors]);
   const repeats: { value: RepeatRule; label: string }[] = [
@@ -84,11 +80,6 @@ export default function ReminderDetailScreen() {
   useEffect(() => {
     load();
   }, [load]);
-
-  const onChangeDate = (_: DateTimePickerEvent, date?: Date) => {
-    if (Platform.OS === 'android') setShowPicker(false);
-    if (date) setDueAt(date);
-  };
 
   const save = async () => {
     if (!id || !title.trim()) return;
@@ -189,39 +180,15 @@ export default function ReminderDetailScreen() {
           />
         </View>
 
-        <PhotoAttach
-          uri={photoUri}
-          onChange={setPhotoUri}
-          prompt={
-            category === 'medicine'
-              ? 'Picture of the medicine'
-              : category === 'buy'
-                ? 'Picture of what to buy'
-                : category === 'doctor'
-                  ? 'Picture of the appointment'
-                  : 'Add a photo'
-          }
-        />
-
-        <Pressable style={styles.row} onPress={() => setShowPicker(true)}>
-          <Ionicons name="time-outline" size={18} color={colors.accent} />
-          <Text style={styles.rowText}>
-            {dueAt.toLocaleString([], {
-              weekday: 'short',
-              month: 'short',
-              day: 'numeric',
-              hour: 'numeric',
-              minute: '2-digit',
-            })}
-          </Text>
-        </Pressable>
-        {showPicker ? (
-          <DateTimePicker
-            value={dueAt}
-            mode="datetime"
-            onChange={onChangeDate}
+        {categorySupportsPhoto(category) ? (
+          <PhotoAttach
+            uri={photoUri}
+            onChange={setPhotoUri}
+            prompt="Picture of the medicine"
           />
         ) : null}
+
+        <DueDateTimePicker value={dueAt} onChange={setDueAt} />
 
         {(reminder.items ?? []).length > 0 ? (
           <>
@@ -353,13 +320,6 @@ function makeReminderStyles(colors: ReturnType<typeof useTheme>['colors']) {
     fontWeight: '600',
     color: colors.text,
   },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
-  },
-  rowText: { fontSize: 16, color: colors.text, fontWeight: '500' },
   label: {
     fontSize: 12,
     fontWeight: '600',

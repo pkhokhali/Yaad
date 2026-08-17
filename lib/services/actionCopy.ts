@@ -61,7 +61,7 @@ export function formatNotificationBody(
   if (category === 'call') {
     return 'Action: Call now · Done · Snooze 30m';
   }
-  return notes?.trim() || 'Done · Snooze · Voice';
+  return notes?.trim() || 'Tap Done when finished';
 }
 
 export function formatSpokenAlert(

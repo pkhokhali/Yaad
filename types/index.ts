@@ -52,8 +52,12 @@ export interface AppSettings {
   quietHoursEnabled: boolean;
   voiceLanguage: VoiceLanguage;
   speakAlerts: boolean;
-  /** 0 Gentle, 1 Standard, 2 Strong. */
-  alertsBeforeDeadline: number;
+  /** Reminders before due time (0–5). Always one alert at due time. */
+  alertsBeforeCount: number;
+  /** Follow-up reminders after due if not Done (0–5). */
+  alertsAfterCount: number;
+  /** @deprecated migrated to alertsBeforeCount / alertsAfterCount */
+  alertsBeforeDeadline?: number;
   appearanceTheme: ThemeName;
   appearanceScale: ScaleMode;
   onboardingComplete: boolean;
@@ -78,7 +82,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   quietHoursEnabled: true,
   voiceLanguage: 'en',
   speakAlerts: true,
-  alertsBeforeDeadline: 1,
+  alertsBeforeCount: 0,
+  alertsAfterCount: 1,
   appearanceTheme: 'dark',
   appearanceScale: 'standard',
   onboardingComplete: false,

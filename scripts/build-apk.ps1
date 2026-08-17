@@ -22,11 +22,11 @@ function Find-AndroidSdk {
 
 $SdkDir = Find-AndroidSdk
 if (-not $SdkDir) {
-  Write-Error "Android SDK not found. Set ANDROID_HOME or install the SDK (tried D:\Android\Sdk and %LOCALAPPDATA%\Android\Sdk)."
+  Write-Error 'Android SDK not found. Set ANDROID_HOME or install the SDK.'
 }
 
 if (-not (Test-Path $AndroidDir)) {
-  Write-Host "android/ folder missing — running Expo prebuild..."
+  Write-Host 'android/ folder missing - running Expo prebuild...'
   Push-Location $Root
   try {
     npx expo prebuild --platform android --non-interactive
@@ -46,8 +46,9 @@ try {
   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
   $apk = Join-Path $AndroidDir 'app\build\outputs\apk\release\app-release.apk'
   if (Test-Path $apk) {
-    Write-Host ""
-    Write-Host "APK: $apk"
+    $sizeMb = [math]::Round((Get-Item $apk).Length / 1MB, 1)
+    Write-Host ''
+    Write-Host "APK ($sizeMb MB): $apk"
   }
 } finally {
   Pop-Location

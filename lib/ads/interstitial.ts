@@ -76,14 +76,14 @@ function waitForPreload(ms: number): Promise<boolean> {
  */
 export async function showLaunchInterstitial(): Promise<void> {
   if (Platform.OS === 'web' || shownThisProcess) return;
-  shownThisProcess = true;
   try {
     if (!loadedAd) preloadInterstitial();
-    const ready = loadedAd ? true : await waitForPreload(2500);
+    const ready = loadedAd ? true : await waitForPreload(6000);
     if (!ready || !loadedAd) return;
     const ad = loadedAd;
     loadedAd = null;
     await ad.show();
+    shownThisProcess = true;
   } catch {
     // Ads must never block reminders.
   }

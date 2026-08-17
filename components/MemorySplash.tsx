@@ -11,6 +11,7 @@ import Animated, {
 import * as SplashScreen from 'expo-splash-screen';
 
 import { MemoryNodeIcon } from '@/components/MemoryNodeIcon';
+import { brand } from '@/constants/theme';
 import { useCopy } from '@/lib/i18n/copy';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useTheme } from '@/providers/ThemeProvider';
@@ -28,6 +29,7 @@ export function MemorySplash({ ready, onFinished }: Props) {
   const finished = useRef(false);
   const node = useSharedValue(0);
   const word = useSharedValue(0);
+  const names = useSharedValue(0);
   const whisper = useSharedValue(0);
   const screen = useSharedValue(1);
 
@@ -47,8 +49,12 @@ export function MemorySplash({ ready, onFinished }: Props) {
       420,
       withTiming(1, { duration: 900, easing: Easing.out(Easing.cubic) }),
     );
-    whisper.value = withDelay(900, withTiming(1, { duration: 700 }));
-  }, [node, word, whisper]);
+    names.value = withDelay(
+      680,
+      withTiming(1, { duration: 700, easing: Easing.out(Easing.cubic) }),
+    );
+    whisper.value = withDelay(980, withTiming(1, { duration: 700 }));
+  }, [node, word, names, whisper]);
 
   useEffect(() => {
     if (!ready) return;
@@ -74,6 +80,11 @@ export function MemorySplash({ ready, onFinished }: Props) {
   const wordStyle = useAnimatedStyle(() => ({
     opacity: word.value * screen.value,
     transform: [{ translateY: (1 - word.value) * 8 }],
+  }));
+
+  const namesStyle = useAnimatedStyle(() => ({
+    opacity: names.value * screen.value,
+    transform: [{ translateY: (1 - names.value) * 6 }],
   }));
 
   const whisperStyle = useAnimatedStyle(() => ({
@@ -103,6 +114,15 @@ export function MemorySplash({ ready, onFinished }: Props) {
           Yaad
         </Animated.Text>
         <Animated.Text
+          style={[
+            styles.names,
+            { fontSize: s(18), color: colors.accent },
+            namesStyle,
+          ]}
+        >
+          {brand.localNames}
+        </Animated.Text>
+        <Animated.Text
           style={[styles.whisper, { color: colors.textMuted }, whisperStyle]}
         >
           {copy.splashTagline}
@@ -126,6 +146,10 @@ const styles = StyleSheet.create({
   word: {
     fontWeight: '700',
     letterSpacing: 1,
+  },
+  names: {
+    fontWeight: '600',
+    letterSpacing: 0.8,
   },
   whisper: {
     fontSize: 13,

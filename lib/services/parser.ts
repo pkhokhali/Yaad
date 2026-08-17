@@ -37,6 +37,24 @@ const WORD_NUMBERS: Record<string, number> = {
 
 const DEVANAGARI_DIGITS = '०१२३४५६७८९';
 
+const ENGLISH_HOUR_WORDS =
+  'one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve';
+
+const ENGLISH_NUMBERS: Record<string, number> = {
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+  eleven: 11,
+  twelve: 12,
+};
+
 function hasWord(text: string, word: string): boolean {
   const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return new RegExp(
@@ -48,6 +66,8 @@ function hasWord(text: string, word: string): boolean {
 function parseNumeralToken(raw: string): number | null {
   const t = raw.trim();
   if (WORD_NUMBERS[t] != null) return WORD_NUMBERS[t];
+  const en = ENGLISH_NUMBERS[t.toLowerCase()];
+  if (en != null) return en;
   let western = '';
   for (const ch of t) {
     const i = DEVANAGARI_DIGITS.indexOf(ch);
@@ -159,6 +179,11 @@ export function parseLocalDueAt(
     matched = true;
   }
 
+  const clockText = text.replace(
+    /\bfor\s+(?:o['']?\s*clock|oclock)\b/gi,
+    "4 o'clock",
+  );
+
   const durationMin = text.match(
     /(?:(?:after|in|pachhi|pachi|ma)\s+)?(\d+|[०-९]+|एक|दुई|दुइ|तीन|चार|पाँच|पांच|छ|सात|आठ|नौ|दश|दस|एघार|बाह्र|two|three|four|five)\s*(?:मिनेट|min(?:ute)?s?)\s*(?:मा|ma|pachhi|pachi|पछि)?/iu,
   );
@@ -191,8 +216,11 @@ export function parseLocalDueAt(
     }
   }
 
-  const clock = text.match(
-    /(\d{1,2}|[०-९]{1,2}|एक|दुई|दुइ|तीन|चार|पाँच|पांच|छ|सात|आठ|नौ|दश|दस|एघार|बाह्र)\s*(?:[:.](\d{2}|[०-९]{2}))?\s*(बजे|baje)/iu,
+  const clock = clockText.match(
+    new RegExp(
+      `(\\d{1,2}|[०-९]{1,2}|${ENGLISH_HOUR_WORDS}|एक|दुई|दुइ|तीन|चार|पाँच|पांच|छ|सात|आठ|नौ|दश|दस|एघार|बाह्र)\\s*(?:[:.](\\d{2}|[०-९]{2}))?\\s*(?:बजे|baje|o['']?\\s*clock|oclock)`,
+      'iu',
+    ),
   );
   const dayPart = detectDayPart(text);
 
@@ -225,12 +253,29 @@ function stripLocalPhrases(title: string): string {
   );
 }
 
+function stripClockPhrases(title: string): string {
+  return title
+    .replace(
+      new RegExp(
+        `\\b(at\\s+)?(?:\\d{1,2}(?::\\d{2})?|${ENGLISH_HOUR_WORDS})\\s*(?:o['']?\\s*clock|oclock)\\b`,
+        'gi',
+      ),
+      '',
+    )
+    .replace(/\b(?:o['']?\s*clock|oclock)\b/gi, '')
+    .replace(/\b(?:at\s+)?(?:for|four)\s+(?:o['']?\s*clock|oclock)\b/gi, '')
+    .replace(/\bremaining\b/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 function cleanTitle(text: string, dueAt: Date): string {
   let title = normalizeReminderTitle(text.replace(PREFIX, '').trim());
 
+  title = stripClockPhrases(title);
   title = stripLocalPhrases(
     title.replace(
-      /\b(today|tomorrow|tonight|this (morning|afternoon|evening|week)|next (week|monday|tuesday|wednesday|thursday|friday|saturday|sunday)|at \d{1,2}(:\d{2})?\s*(am|pm)?|(?:after|in)\s+\d+\s*(minutes?|hours?|days?|mins?)|on \w+day)\b/gi,
+      /\b(today|tomorrow|tonight|this (morning|afternoon|evening|week)|next (week|monday|tuesday|wednesday|thursday|friday|saturday|sunday)|at \d{1,2}(:\d{2})?\s*(am|pm|o['']?\s*clock|oclock)?|(?:after|in)\s+\d+\s*(minutes?|hours?|days?|mins?)|on \w+day)\b/gi,
       '',
     ),
   )
