@@ -18,22 +18,30 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CategoryChip } from '@/components/CategoryChip';
+import { ChecklistRows } from '@/components/ChecklistRows';
 import { ContentColumn } from '@/components/ContentColumn';
 import { PhotoAttach } from '@/components/PhotoAttach';
-import { colors, radii, spacing } from '@/constants/theme';
+import { radii, spacing } from '@/constants/theme';
 import { CARE_CATEGORIES, CATEGORY_LABEL } from '@/lib/care/categories';
 import { persistReminderPhoto } from '@/lib/care/photos';
 import { useResponsive } from '@/hooks/useResponsive';
+import { useCopy } from '@/lib/i18n/copy';
+import { splitListItems, toChecklistItems } from '@/lib/parse/listItems';
 import { parseCaptureText } from '@/lib/services/parser';
+import { useScale } from '@/providers/ScaleProvider';
+import { useTheme } from '@/providers/ThemeProvider';
 import { useReminderStore } from '@/store/useReminderStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
-import { Category } from '@/types';
+import { Category, ChecklistItem } from '@/types';
 
 const CATEGORIES = CARE_CATEGORIES;
 
 export default function AddReminderScreen() {
   const insets = useSafeAreaInsets();
   const { gutter, s } = useResponsive();
+  const { colors } = useTheme();
+  const { scale } = useScale();
+  const copy = useCopy();
   const router = useRouter();
   const params = useLocalSearchParams<{ draft?: string; fromVoice?: string }>();
   const addReminder = useReminderStore((s) => s.addReminder);
@@ -45,9 +53,12 @@ export default function AddReminderScreen() {
   const [category, setCategory] = useState<Category>('general');
   const [everyDay, setEveryDay] = useState(false);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [items, setItems] = useState<ChecklistItem[] | undefined>();
   const [parsing, setParsing] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showPicker, setShowPicker] = useState(Platform.OS === 'ios');
+
+  const styles = useMemo(() => makeAddStyles(colors), [colors]);
 
   const draft = useMemo(
     () => (typeof params.draft === 'string' ? params.draft : ''),
@@ -69,6 +80,7 @@ export default function AddReminderScreen() {
         setDueAt(parsed.dueAt);
         setCategory(parsed.category);
         setEveryDay(parsed.repeatDaily);
+        setItems(parsed.items);
         if (params.fromVoice === '1') {
           setNotes(parsed.rawText);
         }
@@ -97,6 +109,8 @@ export default function AddReminderScreen() {
           due_at: dueAt.getTime(),
           category,
           repeat_rule: everyDay ? 'daily' : null,
+          items:
+            items ?? toChecklistItems(splitListItems(title.trim())),
         },
         getSettings(),
       );
@@ -141,13 +155,27 @@ export default function AddReminderScreen() {
         <View style={styles.card}>
           <Text style={styles.label}>What</Text>
           <TextInput
-            style={styles.titleInput}
+            style={[styles.titleInput, { fontSize: scale.heroTitle }]}
             value={title}
             onChangeText={setTitle}
             placeholder="Reminder title"
             placeholderTextColor={colors.textSubtle}
             autoFocus={!draft}
           />
+
+          {items && items.length > 0 ? (
+            <ChecklistRows
+              items={items}
+              onToggle={(index) =>
+                setItems((prev) =>
+                  prev?.map((item, i) =>
+                    i === index ? { ...item, done: !item.done } : item,
+                  ),
+                )
+              }
+              maxVisible={99}
+            />
+          ) : null}
 
           <Text style={[styles.label, { marginTop: spacing.lg }]}>When</Text>
           <Pressable
@@ -181,12 +209,12 @@ export default function AddReminderScreen() {
             accessibilityState={{ checked: everyDay }}
           >
             <Text style={[styles.everyDayText, everyDay && styles.everyDayTextOn]}>
-              Daily task
+              {copy.dailyTasks}
             </Text>
             <Text style={styles.everyDayHint}>
               {everyDay
                 ? 'Comes back tomorrow after you tap Done'
-                : 'Once — won’t repeat'}
+                : copy.once}
             </Text>
           </Pressable>
 
@@ -254,9 +282,9 @@ export default function AddReminderScreen() {
         disabled={!title.trim() || saving || parsing}
       >
         {saving ? (
-          <ActivityIndicator color="#fff" />
+          <ActivityIndicator color="#1A1C21" />
         ) : (
-          <Text style={styles.saveText}>Save reminder</Text>
+          <Text style={styles.saveText}>{copy.saveReminder}</Text>
         )}
       </Pressable>
       </ScrollView>
@@ -265,7 +293,8 @@ export default function AddReminderScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeAddStyles(colors: ReturnType<typeof useTheme>['colors']) {
+  return StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   content: { paddingVertical: spacing.lg },
   loading: {
@@ -365,5 +394,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   saveDisabled: { opacity: 0.5 },
-  saveText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-});
+  saveText: { color: '#1A1C21', fontSize: 16, fontWeight: '700' },
+  });
+}

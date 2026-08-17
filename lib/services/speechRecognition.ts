@@ -5,8 +5,10 @@ import {
 } from 'expo-speech-recognition';
 import { Platform } from 'react-native';
 
+import { copyForLanguage } from '@/lib/i18n/copy';
 import {
   getVoiceLanguageOption,
+  languageHasOnDeviceSupport,
   resolveSpeechLocale,
   VoiceLanguageOption,
 } from '@/lib/services/voiceLanguages';
@@ -160,16 +162,15 @@ export async function startSpeechSession(
   }
 
   const option = getVoiceLanguageOption(lang);
-  const resolved = await resolveSpeechLocale(lang);
-
-  let hint: string | null = option.hint;
-  if (resolved.usedFallback && lang === 'new') {
-    hint = 'Newari isn\u2019t on this phone \u2014 listening in Nepali';
-  } else if (resolved.usedFallback && lang === 'ne') {
-    hint = `Listening as ${resolved.locale} (Nepali model)`;
-  } else if (resolved.usedFallback && lang === 'en') {
-    hint = `Listening in ${resolved.locale}`;
+  const onDevice = await languageHasOnDeviceSupport(lang);
+  if (!onDevice) {
+    const copy = copyForLanguage(lang);
+    throw new Error(
+      lang === 'new' ? copy.newariUnavailable : copy.voiceUnavailable,
+    );
   }
+
+  const resolved = await resolveSpeechLocale(lang);
 
   ExpoSpeechRecognitionModule.start(
     buildSpeechOptions(lang, resolved.locale, _mode),
@@ -178,7 +179,7 @@ export async function startSpeechSession(
   return {
     locale: resolved.locale,
     usedFallback: resolved.usedFallback,
-    hint,
+    hint: option.hint,
   };
 }
 

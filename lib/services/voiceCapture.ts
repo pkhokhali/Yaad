@@ -36,6 +36,7 @@ export async function submitVoiceCapture(
           due_at: parsed.dueAt.getTime(),
           category: parsed.category,
           repeat_rule: parsed.repeatDaily ? 'daily' : null,
+          items: parsed.items,
         },
         appSettings,
       );

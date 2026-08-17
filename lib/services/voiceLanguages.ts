@@ -101,9 +101,38 @@ export function getVoiceLanguageOption(
   );
 }
 
-export function nextVoiceLanguage(lang: VoiceLanguage): VoiceLanguage {
-  const i = VOICE_LANGUAGE_OPTIONS.findIndex((o) => o.value === lang);
-  return VOICE_LANGUAGE_OPTIONS[(i + 1) % VOICE_LANGUAGE_OPTIONS.length].value;
+export async function languageHasOnDeviceSupport(
+  lang: VoiceLanguage,
+): Promise<boolean> {
+  const option = getVoiceLanguageOption(lang);
+  const { installed, supported } = await getRecognizerLocales();
+  const pool = installed.length > 0 ? installed : supported;
+  const wanted =
+    lang === 'new'
+      ? option.locales.filter((code) => localePrefix(code) === 'new')
+      : option.locales;
+  return wanted.some((code) => Boolean(findSupported(pool, code)));
+}
+
+export async function listOnDeviceVoiceLanguages(): Promise<
+  VoiceLanguageOption[]
+> {
+  const available: VoiceLanguageOption[] = [];
+  for (const option of VOICE_LANGUAGE_OPTIONS) {
+    if (await languageHasOnDeviceSupport(option.value)) {
+      available.push(option);
+    }
+  }
+  return available;
+}
+
+export function nextVoiceLanguageFrom(
+  lang: VoiceLanguage,
+  options: VoiceLanguageOption[],
+): VoiceLanguage {
+  if (options.length === 0) return 'en';
+  const i = options.findIndex((o) => o.value === lang);
+  return options[(i + 1) % options.length].value;
 }
 
 function normalizeLocale(code: string): string {
@@ -182,9 +211,7 @@ export async function resolveSpeechLocale(
       option.locales.filter((code) => localePrefix(code) === 'new'),
     );
     if (native) return native;
-    const nepali = pickFromLists(['ne-NP', 'ne']);
-    if (nepali) return { ...nepali, usedFallback: true };
-    return { locale: 'ne-NP', usedFallback: true };
+    return { locale: 'new-NP', usedFallback: true };
   }
 
   const hit = pickFromLists(option.locales);

@@ -1,7 +1,28 @@
 import { Category } from '@/types';
 
+export type ThemeName = 'dark' | 'normal';
+
+export type ThemeColors = {
+  background: string;
+  surface: string;
+  surfaceElevated: string;
+  border: string;
+  borderHairline: string;
+  text: string;
+  textMuted: string;
+  textSubtle: string;
+  accent: string;
+  accentSoft: string;
+  accentGlow: string;
+  accentBlue: string;
+  danger: string;
+  success: string;
+  streak: string;
+  overlay: string;
+};
+
 /** Material 3 Dark + Electric Amber Memory Node identity */
-export const colors = {
+export const darkColors: ThemeColors = {
   background: '#12141A',
   surface: '#1C1F27',
   surfaceElevated: '#252932',
@@ -19,6 +40,29 @@ export const colors = {
   streak: '#FFB300',
   overlay: 'rgba(0, 0, 0, 0.62)',
 };
+
+/** Normal = light theme. Same accent and category tints. */
+export const lightColors: ThemeColors = {
+  background: '#F6F3EC',
+  surface: '#FFFFFF',
+  surfaceElevated: '#F3EEE4',
+  border: '#E2DCCF',
+  borderHairline: '#EBE6DB',
+  text: '#1A1C21',
+  textMuted: '#5C616B',
+  textSubtle: '#8A8F99',
+  accent: '#FFB300',
+  accentSoft: 'rgba(255, 179, 0, 0.18)',
+  accentGlow: 'rgba(255, 179, 0, 0.42)',
+  accentBlue: '#5EB8FF',
+  danger: '#F87171',
+  success: '#34D399',
+  streak: '#FFB300',
+  overlay: 'rgba(0, 0, 0, 0.45)',
+};
+
+/** @deprecated Use useTheme().colors — kept as dark default for non-UI modules. */
+export const colors = darkColors;
 
 export const categoryColors: Record<
   Category,
@@ -53,6 +97,13 @@ export const radii = {
 
 export const brand = {
   motto: 'Don\u2019t remember. Just Yaad.',
+  mottoNe: 'नबिर्सनुहोस्। याद मात्र।',
   tagline: 'Everything lives on your phone alone.',
+  taglineNe: 'सबै कुरा यसै फोनमा मात्र रहन्छ।',
   voiceTagline: 'Voice-first. 100% on-device.',
+  voiceTaglineNe: 'आवाजबाट। पूर्ण रूपमा फोनमै।',
 };
+
+export function paletteFor(theme: ThemeName): ThemeColors {
+  return theme === 'normal' ? lightColors : darkColors;
+}

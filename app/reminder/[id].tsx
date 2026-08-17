@@ -3,7 +3,7 @@ import DateTimePicker, {
   DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -19,31 +19,32 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CategoryChip } from '@/components/CategoryChip';
+import { ChecklistRows } from '@/components/ChecklistRows';
 import { ContentColumn } from '@/components/ContentColumn';
 import { PhotoAttach } from '@/components/PhotoAttach';
-import { colors, radii, spacing } from '@/constants/theme';
+import { radii, spacing } from '@/constants/theme';
 import { CARE_CATEGORIES, CATEGORY_LABEL, normalizeCategory } from '@/lib/care/categories';
 import { persistReminderPhoto } from '@/lib/care/photos';
 import { useResponsive } from '@/hooks/useResponsive';
+import { useCopy } from '@/lib/i18n/copy';
+import { useTheme } from '@/providers/ThemeProvider';
 import { useReminderStore } from '@/store/useReminderStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { Category, Reminder, RepeatRule } from '@/types';
 
 const CATEGORIES = CARE_CATEGORIES;
-const REPEATS: { value: RepeatRule; label: string }[] = [
-  { value: null, label: 'Once' },
-  { value: 'daily', label: 'Every day' },
-  { value: 'weekly', label: 'Weekly' },
-];
 
 export default function ReminderDetailScreen() {
   const insets = useSafeAreaInsets();
   const { gutter, s } = useResponsive();
+  const { colors } = useTheme();
+  const copy = useCopy();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const getById = useReminderStore((s) => s.getById);
   const editReminder = useReminderStore((s) => s.editReminder);
   const completeReminder = useReminderStore((s) => s.completeReminder);
+  const toggleChecklistItem = useReminderStore((s) => s.toggleChecklistItem);
   const removeReminder = useReminderStore((s) => s.removeReminder);
   const snooze = useReminderStore((s) => s.snooze);
   const getSettings = useSettingsStore((s) => s.getSettings);
@@ -57,6 +58,12 @@ export default function ReminderDetailScreen() {
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [showPicker, setShowPicker] = useState(false);
   const [busy, setBusy] = useState(false);
+  const styles = useMemo(() => makeReminderStyles(colors), [colors]);
+  const repeats: { value: RepeatRule; label: string }[] = [
+    { value: null, label: copy.once },
+    { value: 'daily', label: copy.dailyTasks },
+    { value: 'weekly', label: 'Weekly' },
+  ];
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -216,6 +223,25 @@ export default function ReminderDetailScreen() {
           />
         ) : null}
 
+        {(reminder.items ?? []).length > 0 ? (
+          <>
+            <Text style={styles.label}>{copy.itemsDone(
+              (reminder.items ?? []).filter((item) => item.done).length,
+              (reminder.items ?? []).length,
+            )}</Text>
+            <ChecklistRows
+              items={reminder.items ?? []}
+              onToggle={async (index) => {
+                if (!id) return;
+                await toggleChecklistItem(id, index);
+                const next = await getById(id);
+                if (next) setReminder(next);
+              }}
+              maxVisible={99}
+            />
+          </>
+        ) : null}
+
         <Text style={styles.label}>Category</Text>
         <View style={styles.chips}>
           {CATEGORIES.map((c) => (
@@ -232,7 +258,7 @@ export default function ReminderDetailScreen() {
 
         <Text style={styles.label}>Repeat</Text>
         <View style={styles.chips}>
-          {REPEATS.map((r) => (
+          {repeats.map((r) => (
             <Pressable
               key={String(r.value)}
               onPress={() => setRepeatRule(r.value)}
@@ -268,7 +294,7 @@ export default function ReminderDetailScreen() {
         {!reminder.is_done ? (
           <>
             <Pressable style={styles.primary} onPress={onDone} disabled={busy}>
-              <Text style={styles.primaryText}>Done</Text>
+              <Text style={styles.primaryText}>{copy.done}</Text>
             </Pressable>
             <View style={styles.snoozeRow}>
               {[10, 30, 60].map((m) => (
@@ -298,7 +324,8 @@ export default function ReminderDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeReminderStyles(colors: ReturnType<typeof useTheme>['colors']) {
+  return StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   content: { paddingVertical: spacing.lg },
   loading: {
@@ -387,7 +414,7 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     alignItems: 'center',
   },
-  primaryText: { color: '#fff', fontWeight: '700', fontSize: 18 },
+  primaryText: { color: '#1A1C21', fontWeight: '700', fontSize: 18 },
   snoozeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   snooze: {
     flex: 1,
@@ -414,4 +441,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   dangerText: { color: colors.danger, fontWeight: '600', fontSize: 15 },
-});
+  });
+}

@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, radii, spacing } from '@/constants/theme';
+import { radii, spacing } from '@/constants/theme';
+import { useTheme } from '@/providers/ThemeProvider';
 import {
   chooseReminderPhoto,
   takeReminderPhoto,
@@ -14,6 +15,7 @@ type Props = {
 };
 
 export function PhotoAttach({ uri, onChange, prompt = 'Add a photo' }: Props) {
+  const { colors } = useTheme();
   const pick = () => {
     Alert.alert(prompt, 'A picture of the bottle or box helps you recognise it.', [
       {
@@ -40,16 +42,16 @@ export function PhotoAttach({ uri, onChange, prompt = 'Add a photo' }: Props) {
   if (uri) {
     return (
       <Pressable onPress={pick} style={styles.previewWrap} accessibilityLabel="Change photo">
-        <Image source={{ uri }} style={styles.preview} />
-        <Text style={styles.change}>Tap to change</Text>
+        <Image source={{ uri }} style={[styles.preview, { backgroundColor: colors.surfaceElevated }]} />
+        <Text style={[styles.change, { color: colors.textMuted }]}>Tap to change</Text>
       </Pressable>
     );
   }
 
   return (
-    <Pressable onPress={pick} style={styles.empty} accessibilityLabel={prompt}>
+    <Pressable onPress={pick} style={[styles.empty, { borderColor: colors.accent, backgroundColor: colors.accentSoft }]} accessibilityLabel={prompt}>
       <Ionicons name="camera" size={22} color={colors.accent} />
-      <Text style={styles.emptyText}>{prompt}</Text>
+      <Text style={[styles.emptyText, { color: colors.accent }]}>{prompt}</Text>
     </Pressable>
   );
 }
@@ -61,15 +63,12 @@ const styles = StyleSheet.create({
     borderRadius: radii.card,
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: colors.accent,
-    backgroundColor: colors.accentSoft,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
     padding: spacing.lg,
   },
   emptyText: {
-    color: colors.accent,
     fontWeight: '600',
     fontSize: 15,
     textAlign: 'center',
@@ -84,10 +83,8 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     maxHeight: 240,
     borderRadius: radii.card,
-    backgroundColor: colors.surfaceElevated,
   },
   change: {
     fontSize: 13,
-    color: colors.textMuted,
   },
 });

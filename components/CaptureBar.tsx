@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useSpeechRecognitionEvent } from 'expo-speech-recognition';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -11,7 +11,10 @@ import {
   View,
 } from 'react-native';
 
-import { colors, radii, spacing } from '@/constants/theme';
+import { radii, spacing } from '@/constants/theme';
+import { useCopy } from '@/lib/i18n/copy';
+import { useScale } from '@/providers/ScaleProvider';
+import { useTheme } from '@/providers/ThemeProvider';
 import {
   abortSpeechSession,
   normalizeSpeechTranscript,
@@ -22,7 +25,9 @@ import {
 } from '@/lib/services/speechRecognition';
 import {
   getVoiceLanguageOption,
-  nextVoiceLanguage,
+  listOnDeviceVoiceLanguages,
+  nextVoiceLanguageFrom,
+  VoiceLanguageOption,
 } from '@/lib/services/voiceLanguages';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
@@ -38,9 +43,15 @@ const PLACEHOLDERS = {
 } as const;
 
 export function CaptureBar({ onSubmitText, gutter = spacing.lg }: Props) {
+  const { colors } = useTheme();
+  const { scale } = useScale();
+  const copy = useCopy();
   const voiceLanguage = useSettingsStore((s) => s.voiceLanguage ?? 'en');
   const setVoiceLanguage = useSettingsStore((s) => s.setVoiceLanguage);
   const langOption = getVoiceLanguageOption(voiceLanguage);
+  const [availableLangs, setAvailableLangs] = useState<VoiceLanguageOption[]>(
+    [],
+  );
 
   const [text, setText] = useState('');
   const [listening, setListening] = useState(false);
@@ -48,6 +59,23 @@ export function CaptureBar({ onSubmitText, gutter = spacing.lg }: Props) {
   const accumulatorRef = useRef(new TranscriptAccumulator());
   const wantedRef = useRef(false);
   const startingRef = useRef(false);
+  const lastRestartRef = useRef(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    listOnDeviceVoiceLanguages().then((langs) => {
+      if (cancelled) return;
+      setAvailableLangs(langs);
+      if (langs.length === 0) {
+        setMicHint(copy.voiceUnavailable);
+      } else if (voiceLanguage === 'new' && !langs.some((l) => l.value === 'new')) {
+        setMicHint(copy.newariUnavailable);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [copy.newariUnavailable, copy.voiceUnavailable, voiceLanguage]);
 
   const finishWithTranscript = useCallback(() => {
     const finalText = normalizeSpeechTranscript(
@@ -59,20 +87,20 @@ export function CaptureBar({ onSubmitText, gutter = spacing.lg }: Props) {
     if (finalText) {
       onSubmitText(finalText);
     } else {
-      setMicHint('Tap the mic, speak, then tap again');
+      setMicHint(copy.tapToSpeak);
     }
-  }, [onSubmitText, text, voiceLanguage]);
+  }, [copy.tapToSpeak, onSubmitText, text, voiceLanguage]);
 
   const beginSession = useCallback(async () => {
     if (startingRef.current) return;
     startingRef.current = true;
     try {
-      const session = await startSpeechSession(voiceLanguage, 'tap');
+      await startSpeechSession(voiceLanguage, 'tap');
       if (!wantedRef.current) {
         abortSpeechSession();
         return;
       }
-      setMicHint(session.hint ?? 'Listening — tap the mic when you’re done');
+      setMicHint(copy.listening);
       setListening(true);
     } catch (err) {
       wantedRef.current = false;
@@ -83,14 +111,12 @@ export function CaptureBar({ onSubmitText, gutter = spacing.lg }: Props) {
     } finally {
       startingRef.current = false;
     }
-  }, [voiceLanguage]);
+  }, [copy.listening, voiceLanguage]);
 
   useSpeechRecognitionEvent('result', (event) => {
     const transcript = accumulatorRef.current.update(event);
     if (transcript) setText(transcript);
   });
-
-  const lastRestartRef = useRef(0);
 
   useSpeechRecognitionEvent('end', () => {
     setListening(false);
@@ -125,10 +151,10 @@ export function CaptureBar({ onSubmitText, gutter = spacing.lg }: Props) {
   }, [text, onSubmitText]);
 
   const cycleLanguage = useCallback(() => {
-    if (listening || wantedRef.current) return;
+    if (listening || wantedRef.current || availableLangs.length < 2) return;
     setMicHint(null);
-    setVoiceLanguage(nextVoiceLanguage(voiceLanguage));
-  }, [listening, setVoiceLanguage, voiceLanguage]);
+    setVoiceLanguage(nextVoiceLanguageFrom(voiceLanguage, availableLangs));
+  }, [availableLangs, listening, setVoiceLanguage, voiceLanguage]);
 
   const toggleListening = useCallback(() => {
     if (wantedRef.current) {
@@ -143,19 +169,39 @@ export function CaptureBar({ onSubmitText, gutter = spacing.lg }: Props) {
       return;
     }
 
-    setMicHint('Listening — tap the mic when you’re done');
+    setMicHint(copy.listening);
     wantedRef.current = true;
     accumulatorRef.current.reset();
     setText('');
     beginSession();
-  }, [beginSession, finishWithTranscript]);
+  }, [beginSession, copy.listening, finishWithTranscript]);
 
   return (
-    <View style={[styles.wrap, { paddingHorizontal: gutter }]}>
-      {micHint ? <Text style={styles.hint}>{micHint}</Text> : null}
-      <View style={styles.bar}>
+    <View
+      style={[
+        styles.wrap,
+        {
+          paddingHorizontal: gutter,
+          backgroundColor: colors.background,
+          borderTopColor: colors.borderHairline,
+        },
+      ]}
+    >
+      {micHint ? (
+        <Text style={[styles.hint, { color: colors.textMuted }]}>{micHint}</Text>
+      ) : null}
+      <View
+        style={[
+          styles.bar,
+          {
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+            minHeight: scale.minHitTarget,
+          },
+        ]}
+      >
         <TextInput
-          style={styles.input}
+          style={[styles.input, { color: colors.text, fontSize: scale.body }]}
           placeholder={PLACEHOLDERS[voiceLanguage]}
           placeholderTextColor={colors.textSubtle}
           value={text}
@@ -170,22 +216,35 @@ export function CaptureBar({ onSubmitText, gutter = spacing.lg }: Props) {
             style={styles.send}
             accessibilityLabel="Save typed reminder"
           >
-            <Ionicons name="arrow-up" size={18} color="#fff" />
+            <Ionicons name="arrow-up" size={18} color="#1A1C21" />
           </Pressable>
         ) : null}
+        {availableLangs.length > 1 ? (
         <Pressable
           onPress={cycleLanguage}
-          style={[styles.langChip, listening && styles.langChipDisabled]}
+          style={[
+            styles.langChip,
+            { backgroundColor: colors.accentSoft, borderColor: colors.border },
+            listening && styles.langChipDisabled,
+          ]}
           accessibilityLabel={`Voice language ${langOption.nativeLabel}. Tap to change.`}
           hitSlop={6}
         >
-          <Text style={styles.langChipText}>{langOption.short}</Text>
+          <Text style={[styles.langChipText, { color: colors.accent }]}>
+            {langOption.short}
+          </Text>
         </Pressable>
+        ) : null}
         <Pressable
           onPress={toggleListening}
           style={({ pressed }) => [
             styles.mic,
-            listening && styles.micActive,
+            {
+              width: scale.minHitTarget,
+              height: scale.minHitTarget,
+              borderRadius: scale.minHitTarget / 2,
+              backgroundColor: listening ? colors.accent : colors.accentSoft,
+            },
             pressed && styles.micPressed,
           ]}
           accessibilityLabel={
@@ -195,7 +254,7 @@ export function CaptureBar({ onSubmitText, gutter = spacing.lg }: Props) {
           }
         >
           {listening ? (
-            <ActivityIndicator color="#fff" size="small" />
+            <ActivityIndicator color="#1A1C21" size="small" />
           ) : (
             <Ionicons name="mic" size={20} color={colors.accent} />
           )}
@@ -210,23 +269,18 @@ const styles = StyleSheet.create({
   wrap: {
     paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
-    backgroundColor: colors.background,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.borderHairline,
   },
   hint: {
     fontSize: 12,
-    color: colors.textMuted,
     marginBottom: spacing.sm,
     textAlign: 'center',
   },
   bar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
     borderRadius: radii.input,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
     paddingLeft: spacing.md,
     paddingRight: spacing.xs,
     minHeight: 52,
@@ -235,7 +289,6 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
-    color: colors.text,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xs,
   },
@@ -245,7 +298,7 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.accent,
+    backgroundColor: '#FFB300',
   },
   langChip: {
     minWidth: 36,
@@ -254,9 +307,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.accentSoft,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
   },
   langChipDisabled: {
     opacity: 0.5,
@@ -264,7 +315,6 @@ const styles = StyleSheet.create({
   langChipText: {
     fontSize: 12,
     fontWeight: '700',
-    color: colors.accent,
   },
   mic: {
     width: 40,
@@ -272,10 +322,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.accentSoft,
-  },
-  micActive: {
-    backgroundColor: colors.accent,
   },
   micPressed: {
     opacity: 0.9,

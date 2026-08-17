@@ -4,6 +4,7 @@ import { formatActionTitle, normalizeReminderTitle } from '@/lib/services/action
 import { suggestCategory, suggestsDailyRepeat } from '@/lib/services/categorize';
 import { listRecentReminders } from '@/lib/db/reminders';
 import { ParsedCapture, Reminder } from '@/types';
+import { splitListItems, toChecklistItems } from '@/lib/parse/listItems';
 
 const PREFIX =
   /^(remind me to|remind me|remember to|don't forget to|dont forget to|need to|yaad|याद|मलाई सम्झाउ|मलाई याद गर|सम्झाउ|सम्झनु|नबिर्स|न बिर्स|लुमंके|लुमनं|malai samjhau|samjhau|yaad gar)\s+/iu;
@@ -335,6 +336,7 @@ export async function parseCaptureText(
 
   const category = suggestCategory(text) || referenced?.category || 'general';
   const repeatDaily = suggestsDailyRepeat(text, category);
+  const items = toChecklistItems(splitListItems(text));
 
   return {
     title: formatActionTitle(title, category),
@@ -342,9 +344,10 @@ export async function parseCaptureText(
     category,
     rawText: text,
     repeatDaily,
+    items,
     confident:
       title.trim().length >= 3 &&
       title.trim().toLowerCase() !== 'reminder' &&
-      (local.matched || Boolean(chronoDate) || repeatDaily),
+      (local.matched || Boolean(chronoDate) || repeatDaily || Boolean(items?.length)),
   };
 }

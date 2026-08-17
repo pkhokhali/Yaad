@@ -422,6 +422,7 @@ export async function completeWithRepeat(
     urgency_curve: reminder.urgency_curve,
     is_urgent: Boolean(reminder.is_urgent),
     image_uri: reminder.image_uri ?? null,
+    items: (reminder.items ?? []).map((item) => ({ ...item, done: false })),
   });
   await scheduleReminderNotifications(next, settings);
   return next;

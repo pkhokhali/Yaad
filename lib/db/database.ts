@@ -46,6 +46,11 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
   } catch {
     // column already exists
   }
+  try {
+    await db.execAsync('ALTER TABLE reminders ADD COLUMN items_json TEXT');
+  } catch {
+    // column already exists
+  }
   return db;
 }
 

@@ -4,6 +4,7 @@ import {
 } from 'expo-speech-recognition';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { copyForLanguage } from '@/lib/i18n/copy';
 import { getVoiceLanguageOption } from '@/lib/services/voiceLanguages';
 import {
   abortSpeechSession,
@@ -70,12 +71,12 @@ export function useVoiceCapture(options: Options = {}) {
     if (startingRef.current || !wantedRef.current) return;
     startingRef.current = true;
     try {
-      const session = await startSpeechSession(voiceLanguage, 'tap');
+      await startSpeechSession(voiceLanguage, 'tap');
       if (!wantedRef.current) {
         abortSpeechSession();
         return;
       }
-      setHint(session.hint ?? 'Listening — tap when you’re done');
+      setHint(copyForLanguage(voiceLanguage).listening);
       setListening(true);
     } catch (err) {
       wantedRef.current = false;

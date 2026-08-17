@@ -2,11 +2,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { StyleSheet } from 'react-native';
 
-import { colors } from '@/constants/theme';
+import { useCopy } from '@/lib/i18n/copy';
 import { useResponsive } from '@/hooks/useResponsive';
+import { useScale } from '@/providers/ScaleProvider';
+import { useTheme } from '@/providers/ThemeProvider';
 
 export default function TabLayout() {
   const { insets, tabBarHeight, isCompact } = useResponsive();
+  const { colors } = useTheme();
+  const { scale } = useScale();
+  const copy = useCopy();
 
   return (
     <Tabs
@@ -14,81 +19,48 @@ export default function TabLayout() {
         headerShown: false,
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.textSubtle,
-        tabBarStyle: [
-          styles.tabBar,
-          {
-            height: tabBarHeight + insets.bottom,
-            paddingBottom: insets.bottom,
-            paddingTop: isCompact ? 2 : 4,
-          },
-        ],
-        tabBarLabelStyle: styles.label,
+        tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.borderHairline,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          height: tabBarHeight + insets.bottom,
+          paddingBottom: insets.bottom,
+          paddingTop: isCompact ? 2 : 4,
+        },
+        tabBarLabelStyle: {
+          fontSize: scale.meta - 2,
+          fontWeight: '500',
+        },
         tabBarIconStyle: isCompact ? { marginTop: 0 } : undefined,
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Today',
+          title: copy.tabs.today,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="today-outline" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="upcoming"
+        name="later"
         options={{
-          title: 'Upcoming',
+          title: copy.tabs.later,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="calendar-outline" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="important"
+        name="me"
         options={{
-          title: 'Important',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="star-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="urgent"
-        options={{
-          title: 'Urgent',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="alert-circle-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profile',
+          title: copy.tabs.me,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person-outline" size={size} color={color} />
           ),
         }}
       />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          href: null,
-        }}
-      />
     </Tabs>
   );
 }
-
-const styles = StyleSheet.create({
-  tabBar: {
-    backgroundColor: colors.surface,
-    borderTopColor: colors.borderHairline,
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  label: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
-});

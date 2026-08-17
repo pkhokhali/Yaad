@@ -17,6 +17,7 @@ export type CreateReminderInput = {
   urgency_curve?: UrgencyCurve;
   is_urgent?: boolean;
   image_uri?: string | null;
+  items?: { label: string; done: boolean }[];
 };
 
 export type UpdateReminderInput = Partial<{
@@ -29,9 +30,27 @@ export type UpdateReminderInput = Partial<{
   is_done: number;
   is_urgent: number;
   image_uri: string | null;
+  items: { label: string; done: boolean }[] | null;
 }>;
 
-function mapRow(row: Reminder): Reminder {
+function parseItems(raw: unknown): Reminder['items'] {
+  if (Array.isArray(raw)) {
+    return raw
+      .filter((row) => row && typeof row.label === 'string')
+      .map((row) => ({
+        label: String(row.label),
+        done: Boolean(row.done),
+      }));
+  }
+  if (typeof raw !== 'string' || !raw.trim()) return undefined;
+  try {
+    return parseItems(JSON.parse(raw));
+  } catch {
+    return undefined;
+  }
+}
+
+function mapRow(row: Reminder & { items_json?: string | null }): Reminder {
   return {
     ...row,
     notes: row.notes ?? null,
@@ -39,6 +58,7 @@ function mapRow(row: Reminder): Reminder {
     category: (row.category as Category) || 'general',
     urgency_curve: (row.urgency_curve as UrgencyCurve) || 'standard',
     image_uri: row.image_uri ?? null,
+    items: parseItems(row.items_json) ?? parseItems(row.items),
   };
 }
 
@@ -60,12 +80,13 @@ export async function createReminder(
     created_at,
     is_urgent: input.is_urgent ? 1 : 0,
     image_uri: input.image_uri ?? null,
+    items: input.items,
   };
 
   await database.runAsync(
     `INSERT INTO reminders
-      (id, title, notes, due_at, category, repeat_rule, urgency_curve, is_done, created_at, is_urgent, image_uri)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id, title, notes, due_at, category, repeat_rule, urgency_curve, is_done, created_at, is_urgent, image_uri, items_json)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       reminder.id,
       reminder.title,
@@ -78,6 +99,7 @@ export async function createReminder(
       reminder.created_at,
       reminder.is_urgent ?? 0,
       reminder.image_uri ?? null,
+      reminder.items ? JSON.stringify(reminder.items) : null,
     ],
   );
 
@@ -94,10 +116,14 @@ export async function updateReminder(
 
   (Object.keys(input) as (keyof UpdateReminderInput)[]).forEach((key) => {
     const value = input[key];
-    if (value !== undefined) {
-      fields.push(`${key} = ?`);
-      values.push(value as string | number | null);
+    if (value === undefined) return;
+    if (key === 'items') {
+      fields.push('items_json = ?');
+      values.push(value ? JSON.stringify(value) : null);
+      return;
     }
+    fields.push(`${key} = ?`);
+    values.push(value as string | number | null);
   });
 
   if (fields.length === 0) return;

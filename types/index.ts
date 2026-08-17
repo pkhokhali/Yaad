@@ -11,6 +11,15 @@ export type UrgencyCurve = 'standard' | 'escalating';
 export type NotificationTier = 'nudge' | 'alert';
 export type VoiceLanguage = 'en' | 'ne' | 'new';
 
+export type ThemeName = 'dark' | 'normal';
+export type ScaleMode = 'standard' | 'comfort';
+export type SetupFor = 'me' | 'family';
+
+export interface ChecklistItem {
+  label: string;
+  done: boolean;
+}
+
 export interface Reminder {
   id: string;
   title: string;
@@ -23,6 +32,7 @@ export interface Reminder {
   created_at: number;
   is_urgent?: number;
   image_uri?: string | null;
+  items?: ChecklistItem[];
 }
 
 export interface NotificationLog {
@@ -44,6 +54,10 @@ export interface AppSettings {
   speakAlerts: boolean;
   /** 0 Gentle, 1 Standard, 2 Strong. */
   alertsBeforeDeadline: number;
+  appearanceTheme: ThemeName;
+  appearanceScale: ScaleMode;
+  onboardingComplete: boolean;
+  setupFor: SetupFor | null;
 }
 
 export interface ParsedCapture {
@@ -53,6 +67,7 @@ export interface ParsedCapture {
   rawText: string;
   confident: boolean;
   repeatDaily: boolean;
+  items?: ChecklistItem[];
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -64,6 +79,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   voiceLanguage: 'en',
   speakAlerts: true,
   alertsBeforeDeadline: 1,
+  appearanceTheme: 'dark',
+  appearanceScale: 'standard',
+  onboardingComplete: false,
+  setupFor: null,
 };
 
 export function minutesToClockLabel(mins: number): string {

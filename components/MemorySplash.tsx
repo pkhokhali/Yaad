@@ -11,8 +11,9 @@ import Animated, {
 import * as SplashScreen from 'expo-splash-screen';
 
 import { MemoryNodeIcon } from '@/components/MemoryNodeIcon';
-import { brand, colors } from '@/constants/theme';
+import { useCopy } from '@/lib/i18n/copy';
 import { useResponsive } from '@/hooks/useResponsive';
+import { useTheme } from '@/providers/ThemeProvider';
 
 type Props = {
   ready: boolean;
@@ -21,6 +22,8 @@ type Props = {
 
 export function MemorySplash({ ready, onFinished }: Props) {
   const { s } = useResponsive();
+  const { colors } = useTheme();
+  const copy = useCopy();
   const startedAt = useRef(Date.now());
   const finished = useRef(false);
   const node = useSharedValue(0);
@@ -79,7 +82,7 @@ export function MemorySplash({ ready, onFinished }: Props) {
 
   return (
     <Pressable
-      style={styles.root}
+      style={[styles.root, { backgroundColor: colors.background }]}
       onPress={() => {
         if (!ready) return;
         if (Date.now() - startedAt.current < 3000) return;
@@ -90,11 +93,19 @@ export function MemorySplash({ ready, onFinished }: Props) {
         <Animated.View style={nodeStyle}>
           <MemoryNodeIcon size={s(96)} />
         </Animated.View>
-        <Animated.Text style={[styles.word, { fontSize: s(36) }, wordStyle]}>
+        <Animated.Text
+          style={[
+            styles.word,
+            { fontSize: s(36), color: colors.text },
+            wordStyle,
+          ]}
+        >
           Yaad
         </Animated.Text>
-        <Animated.Text style={[styles.whisper, whisperStyle]}>
-          {brand.voiceTagline}
+        <Animated.Text
+          style={[styles.whisper, { color: colors.textMuted }, whisperStyle]}
+        >
+          {copy.splashTagline}
         </Animated.Text>
       </View>
     </Pressable>
@@ -104,7 +115,6 @@ export function MemorySplash({ ready, onFinished }: Props) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -115,12 +125,10 @@ const styles = StyleSheet.create({
   },
   word: {
     fontWeight: '700',
-    color: colors.text,
     letterSpacing: 1,
   },
   whisper: {
     fontSize: 13,
-    color: colors.textMuted,
     letterSpacing: 0.4,
     fontStyle: 'italic',
   },

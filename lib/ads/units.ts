@@ -1,15 +1,15 @@
 /**
- * AdMob units. Using Google’s official test IDs until you paste production ones.
- * Swap the PRODUCTION_* values, then set USE_TEST_ADS to false.
+ * AdMob units. Android production IDs are live.
+ * iOS still uses Google test app ID until an iOS AdMob app is created.
  */
-export const USE_TEST_ADS = true;
+export const USE_TEST_ADS = false;
 
-export const PRODUCTION_ANDROID_APP_ID = 'ca-app-pub-xxxxxxxx~xxxxxxxx';
-export const PRODUCTION_IOS_APP_ID = 'ca-app-pub-xxxxxxxx~xxxxxxxx';
+export const PRODUCTION_ANDROID_APP_ID = 'ca-app-pub-5729640735270473~7390242681';
+export const PRODUCTION_IOS_APP_ID = 'ca-app-pub-3940256099942544~1458002511';
 
 export const PRODUCTION_UNITS = {
-  banner: 'ca-app-pub-xxxxxxxx/xxxxxxxx',
-  interstitial: 'ca-app-pub-xxxxxxxx/xxxxxxxx',
+  banner: 'ca-app-pub-5729640735270473/1712208890',
+  interstitial: 'ca-app-pub-5729640735270473/4781175036',
 };
 
 export const TEST_ANDROID_APP_ID = 'ca-app-pub-3940256099942544~3347511713';

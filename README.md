@@ -1,40 +1,58 @@
 # Yaad (याद)
 
-Local-first reminder app for busy field professionals. Capture in under 5 seconds; get interrupted at the right moment. Everything stays on-device — no accounts, no backend, no cloud sync.
+Local-first, voice-first reminders. Everything stays on this phone — no accounts, no cloud.
+
+**Don’t remember. Just Yaad.**
+
+## What it does
+
+- **Today** — next reminder as a large card with Done on the card; type or tap the mic below
+- **Later** — reminders after today
+- **Me** — Dark/Normal theme, Standard/Comfort text size, quiet hours, alerts, voice language
+- On-device voice (English / Nepali / Newari when the phone has a model)
+- Daily tasks, photos, checklists, overdue label with a clock icon
 
 ## Stack
 
-- Expo (managed) + React Native + TypeScript
-- expo-router navigation
-- expo-sqlite persistence
-- expo-notifications local scheduling
-- expo-speech-recognition voice capture
-- chrono-node natural-language date parsing
-- Zustand state
+Expo SDK 57, React Native, TypeScript, expo-router, expo-sqlite, expo-notifications, expo-speech-recognition, AdMob.
 
-## Screens
+## Ads
 
-1. **Home** — today’s reminders, streak badge, combined text/voice capture bar
-2. **Add reminder** — editable confirmation after type or speak
-3. **Reminder detail** — edit, repeat, snooze, done, delete
-4. **Settings** — quiet hours, default urgency, notification style
+- **Full-screen** once per cold start (first open, or after the app is fully closed and opened again). Not shown when returning from the home screen, during onboarding, or when opened from a reminder notification.
+- **Banner** only on Later and Me, 50pt tall, above the tab bar. Never on Today next to the mic.
 
-## Notifications
+Android production AdMob IDs are in `lib/ads/units.ts` and `app.json`. After changing the App ID, run `npx expo prebuild --platform android` before the next native build so the manifest picks it up.
 
-- `standard` — one local alert at `due_at`
-- `escalating` — nudge at `due_at - 60m`, alert at `due_at`
-- Quiet hours defer fires to the end of the quiet window (unless urgent)
-- Repeat rules schedule the next occurrence when marked done
-
-## Run
+## Run (dev)
 
 ```bash
 npm install
 npx expo start
 ```
 
-Voice recognition and reliable exact-alarm scheduling work best in a development build (`npx expo run:android` / `npx expo run:ios`), not only Expo Go.
+Voice and exact alarms need a development build or release APK, not Expo Go.
+
+## Release APK (sideload)
+
+Requires JDK 17 and an Android SDK (this repo looks for `ANDROID_HOME`, `D:\Android\Sdk`, then `%LOCALAPPDATA%\Android\Sdk`).
+
+```bash
+npm install
+npm run build:apk
+```
+
+The APK is written to `android/app/build/outputs/apk/release/app-release.apk`. Gradle caches stay in `.gradle-home/` (gitignored).
+
+After `expo prebuild`, restore `android/local.properties` if needed (`sdk.dir=D:\\Android\\Sdk`).
+
+## Play Store (AAB)
+
+```bash
+npx eas build --platform android --profile production
+```
+
+`eas.json` production profile builds an app bundle and auto-increments the version. Submit stays on the internal track as a draft.
 
 ## Principle
 
-The notification is the product. Capture → schedule → interrupt. Nothing leaves the phone.
+Reminders, voice, and photos never leave the phone. Ads are a separate Google network request and do not include reminder content.

@@ -6,7 +6,7 @@
     "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "yaad",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
     "primaryColor": "#FFB300",
     "ios": {
       "supportsTablet": true,
@@ -92,7 +92,7 @@
       [
         "react-native-google-mobile-ads",
         {
-          "androidAppId": "ca-app-pub-3940256099942544~3347511713",
+          "androidAppId": "ca-app-pub-5729640735270473~7390242681",
           "iosAppId": "ca-app-pub-3940256099942544~1458002511"
         }
       ],
@@ -116,7 +116,8 @@
     }
   },
   "react-native-google-mobile-ads": {
-    "android_app_id": "ca-app-pub-3940256099942544~3347511713",
-    "ios_app_id": "ca-app-pub-3940256099942544~1458002511"
+    "android_app_id": "ca-app-pub-5729640735270473~7390242681",
+    "ios_app_id": "ca-app-pub-3940256099942544~1458002511",
+    "delay_app_measurement_init": true
   }
 }

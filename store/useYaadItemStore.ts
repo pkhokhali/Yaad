@@ -73,6 +73,7 @@ type YaadItemState = {
     minutes: number,
     settings: AppSettings,
   ) => Promise<void>;
+  toggleChecklistItem: (id: string, index: number) => Promise<void>;
   getById: (id: string) => Promise<Reminder | null>;
 };
 
@@ -218,6 +219,16 @@ export const useYaadItemStore = create<YaadItemState>((set, get) => ({
   },
 
   getById: async (id) => getReminderById(id),
+
+  toggleChecklistItem: async (id, index) => {
+    const reminder = await getReminderById(id);
+    if (!reminder?.items || !reminder.items[index]) return;
+    const items = reminder.items.map((item, i) =>
+      i === index ? { ...item, done: !item.done } : item,
+    );
+    await updateReminder(id, { items });
+    await get().refresh();
+  },
 }));
 
 export const useReminderStore = useYaadItemStore;

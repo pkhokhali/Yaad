@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -12,19 +12,24 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ContentColumn } from '@/components/ContentColumn';
 import { MemoryNodeIcon } from '@/components/MemoryNodeIcon';
-import { colors, radii, spacing } from '@/constants/theme';
+import { radii, spacing } from '@/constants/theme';
 import { useResponsive } from '@/hooks/useResponsive';
+import { useCopy } from '@/lib/i18n/copy';
 import { useVoiceCapture } from '@/hooks/useVoiceCapture';
 import { submitVoiceCapture } from '@/lib/services/voiceCapture';
+import { useTheme } from '@/providers/ThemeProvider';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
 export default function VoiceCaptureScreen() {
   const router = useRouter();
   const { gutter, s, height, isLandscape } = useResponsive();
+  const { colors } = useTheme();
+  const copy = useCopy();
   const params = useLocalSearchParams<{ draft?: string; voice?: string }>();
   const getSettings = useSettingsStore((s) => s.getSettings);
   const [status, setStatus] = useState<string | null>(null);
   const [handlingDraft, setHandlingDraft] = useState(false);
+  const styles = useMemo(() => makeCaptureStyles(colors), [colors]);
 
   const autoListen = params.voice !== '0';
   const draft = typeof params.draft === 'string' ? params.draft.trim() : '';
@@ -91,9 +96,7 @@ export default function VoiceCaptureScreen() {
 
         <View style={[styles.center, { paddingHorizontal: gutter }]}>
           <Text style={[styles.title, { fontSize: s(28) }]}>
-            {listening
-              ? 'Speak your reminder…'
-              : 'Tap the mic, then speak'}
+            {listening ? copy.listening : copy.tapToSpeak}
           </Text>
           <Text style={styles.subtitle}>
             {hint ?? `Try: ${examples} · ${langOption.nativeLabel}`}
@@ -134,8 +137,8 @@ export default function VoiceCaptureScreen() {
 
           <Text style={styles.footerHint}>
             {listening
-              ? 'Tap the mic again when you’re done'
-              : 'Tap once to start, tap again to save'}
+              ? copy.tapMicAgain
+              : copy.tapToSpeak}
           </Text>
         </View>
       </ContentColumn>
@@ -143,7 +146,8 @@ export default function VoiceCaptureScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeCaptureStyles(colors: ReturnType<typeof useTheme>['colors']) {
+  return StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: colors.background,
@@ -207,4 +211,5 @@ const styles = StyleSheet.create({
     color: colors.textSubtle,
     textAlign: 'center',
   },
-});
+  });
+}

@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
-import { AppSettings, DEFAULT_SETTINGS, UrgencyCurve, VoiceLanguage } from '@/types';
+import { AppSettings, DEFAULT_SETTINGS, ScaleMode, ThemeName, UrgencyCurve, VoiceLanguage } from '@/types';
 
 type SettingsState = AppSettings & {
   hydrated: boolean;
@@ -14,6 +14,9 @@ type SettingsState = AppSettings & {
   setVoiceLanguage: (voiceLanguage: VoiceLanguage) => void;
   setSpeakAlerts: (speakAlerts: boolean) => void;
   setAlertsBeforeDeadline: (count: number) => void;
+  setAppearanceTheme: (appearanceTheme: ThemeName) => void;
+  setAppearanceScale: (appearanceScale: ScaleMode) => void;
+  completeOnboarding: (setupFor: 'me' | 'family') => void;
   getSettings: () => AppSettings;
 };
 
@@ -36,6 +39,10 @@ function snapshot(s: SettingsState): AppSettings {
     alertsBeforeDeadline: clampAlerts(
       s.alertsBeforeDeadline ?? DEFAULT_SETTINGS.alertsBeforeDeadline,
     ),
+    appearanceTheme: s.appearanceTheme ?? DEFAULT_SETTINGS.appearanceTheme,
+    appearanceScale: s.appearanceScale ?? DEFAULT_SETTINGS.appearanceScale,
+    onboardingComplete: Boolean(s.onboardingComplete),
+    setupFor: s.setupFor ?? null,
   };
 }
 
@@ -55,13 +62,26 @@ export const useSettingsStore = create<SettingsState>()(
       setSpeakAlerts: (speakAlerts) => set({ speakAlerts }),
       setAlertsBeforeDeadline: (count) =>
         set({ alertsBeforeDeadline: clampAlerts(count) }),
+      setAppearanceTheme: (appearanceTheme) => set({ appearanceTheme }),
+      setAppearanceScale: (appearanceScale) => set({ appearanceScale }),
+      completeOnboarding: (setupFor) =>
+        set({
+          onboardingComplete: true,
+          setupFor,
+          appearanceScale: setupFor === 'family' ? 'comfort' : 'standard',
+        }),
       getSettings: () => snapshot(get()),
     }),
     {
       name: 'yaad-settings',
       storage: createJSONStorage(() => AsyncStorage),
       onRehydrateStorage: () => (state) => {
-        if (!state) return;
+        if (!state) {
+          queueMicrotask(() =>
+            useSettingsStore.setState({ hydrated: true }),
+          );
+          return;
+        }
         state.hydrated = true;
         if (!state.voiceLanguage) {
           state.voiceLanguage = DEFAULT_SETTINGS.voiceLanguage;
@@ -71,6 +91,15 @@ export const useSettingsStore = create<SettingsState>()(
         }
         if (state.alertsBeforeDeadline == null || state.alertsBeforeDeadline > 2) {
           state.alertsBeforeDeadline = DEFAULT_SETTINGS.alertsBeforeDeadline;
+        }
+        if (state.appearanceTheme !== 'normal' && state.appearanceTheme !== 'dark') {
+          state.appearanceTheme = DEFAULT_SETTINGS.appearanceTheme;
+        }
+        if (state.appearanceScale !== 'comfort' && state.appearanceScale !== 'standard') {
+          state.appearanceScale = DEFAULT_SETTINGS.appearanceScale;
+        }
+        if (state.onboardingComplete == null) {
+          state.onboardingComplete = false;
         }
         if (state.quietHoursVersion !== 2) {
           if (state.quietHoursStart <= 23) {
@@ -92,6 +121,10 @@ export const useSettingsStore = create<SettingsState>()(
         voiceLanguage: state.voiceLanguage,
         speakAlerts: state.speakAlerts,
         alertsBeforeDeadline: state.alertsBeforeDeadline,
+        appearanceTheme: state.appearanceTheme,
+        appearanceScale: state.appearanceScale,
+        onboardingComplete: state.onboardingComplete,
+        setupFor: state.setupFor,
       }),
     },
   ),

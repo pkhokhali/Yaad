@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, View } from 'react-native';
 
-import { categoryColors, radii } from '@/constants/theme';
+import { categoryColors } from '@/constants/theme';
 import { Category } from '@/types';
 
 const ICONS: Record<Category, keyof typeof Ionicons.glyphMap> = {
@@ -29,7 +29,7 @@ export function CategoryChip({ category, filled = false, size = 34 }: Props) {
         {
           width: size,
           height: size,
-          borderRadius: radii.chip,
+          borderRadius: size / 2,
           backgroundColor: filled ? palette.tint : palette.soft,
         },
       ]}

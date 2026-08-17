@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 
-import { colors } from '@/constants/theme';
-import { useResponsive } from '@/hooks/useResponsive';
+import { useTheme } from '@/providers/ThemeProvider';
 import { AD_UNITS } from '@/lib/ads/units';
 
 type Props = {
   onHeight?: (height: number) => void;
 };
 
+/** Compact 50pt banner. Never place next to the mic / CaptureBar. */
 export function AdBanner({ onHeight }: Props) {
   const [failed, setFailed] = useState(false);
-  const { width, isCompact } = useResponsive();
+  const { colors } = useTheme();
   const hidden = Platform.OS === 'web' || failed;
 
   useEffect(() => {
@@ -26,23 +26,15 @@ export function AdBanner({ onHeight }: Props) {
       BannerAdSize,
     } = require('react-native-google-mobile-ads') as typeof import('react-native-google-mobile-ads');
 
-    const size =
-      width >= 728
-        ? BannerAdSize.LEADERBOARD
-        : width >= 468
-          ? BannerAdSize.FULL_BANNER
-          : isCompact
-            ? BannerAdSize.BANNER
-            : BannerAdSize.ANCHORED_ADAPTIVE_BANNER;
-
     return (
       <View
-        style={styles.wrap}
+        style={[styles.wrap, { backgroundColor: colors.surface }]}
         onLayout={(e) => onHeight?.(e.nativeEvent.layout.height)}
+        pointerEvents="box-none"
       >
         <BannerAd
           unitId={AD_UNITS.banner}
-          size={size}
+          size={BannerAdSize.BANNER}
           requestOptions={{ requestNonPersonalizedAdsOnly: true }}
           onAdFailedToLoad={() => setFailed(true)}
         />
@@ -59,7 +51,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 50,
     width: '100%',
-    backgroundColor: colors.surface,
     overflow: 'hidden',
   },
 });
