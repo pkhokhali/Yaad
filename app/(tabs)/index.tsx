@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -21,19 +21,28 @@ import { ReminderCard } from '@/components/ReminderCard';
 import { StreakBadge } from '@/components/StreakBadge';
 import { brand, colors, spacing } from '@/constants/theme';
 import { useResponsive } from '@/hooks/useResponsive';
-import { useReminderStore } from '@/store/useReminderStore';
+import { filterByBucket } from '@/lib/utils/priority';
+import { useYaadItemStore } from '@/store/useYaadItemStore';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { gutter, s } = useResponsive();
-  const reminders = useReminderStore((s) => s.reminders);
-  const streak = useReminderStore((s) => s.streak);
-  const highlightId = useReminderStore((s) => s.highlightId);
-  const loading = useReminderStore((s) => s.loading);
-  const refresh = useReminderStore((s) => s.refresh);
+  const items = useYaadItemStore((s) => s.items);
+  const reminders = useYaadItemStore((s) => s.reminders);
+  const streak = useYaadItemStore((s) => s.streak);
+  const highlightId = useYaadItemStore((s) => s.highlightId);
+  const bootstrapping = useYaadItemStore((s) => s.bootstrapping);
+  const isRefreshing = useYaadItemStore((s) => s.isRefreshing);
+  const storeReady = useYaadItemStore((s) => s.ready);
 
-  const open = reminders
-    .filter((r) => !r.is_done)
+  const todayItems = useMemo(
+    () => filterByBucket(items, 'Today'),
+    [items],
+  );
+
+  const open = todayItems
+    .map((item) => reminders.find((r) => r.id === item.id))
+    .filter((r): r is NonNullable<typeof r> => Boolean(r))
     .sort((a, b) => {
       const dailyA = a.repeat_rule === 'daily' || a.repeat_rule === 'weekly' ? 0 : 1;
       const dailyB = b.repeat_rule === 'daily' || b.repeat_rule === 'weekly' ? 0 : 1;
@@ -43,13 +52,14 @@ export default function HomeScreen() {
   const done = reminders.filter((r) => r.is_done);
 
   const onRefresh = useCallback(() => {
-    refresh();
-  }, [refresh]);
+    useYaadItemStore.getState().refresh();
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
-      refresh();
-    }, [refresh]),
+      if (!useYaadItemStore.getState().ready) return;
+      useYaadItemStore.getState().refresh();
+    }, []),
   );
 
   return (
@@ -63,7 +73,7 @@ export default function HomeScreen() {
           <Text style={[styles.brand, { fontSize: s(22) }]}>Yaad</Text>
           <MemoryNodeIcon size={s(34)} />
           <Pressable
-            onPress={() => router.push('/settings')}
+            onPress={() => router.push('/profile')}
             hitSlop={12}
             accessibilityLabel="Settings"
           >
@@ -84,7 +94,7 @@ export default function HomeScreen() {
           <View style={styles.tabActive}>
             <Text style={styles.tabActiveText}>Main</Text>
           </View>
-          <Pressable style={styles.tab} onPress={() => router.push('/settings')}>
+          <Pressable style={styles.tab} onPress={() => router.push('/(tabs)/settings')}>
             <Text style={styles.tabText}>Settings</Text>
           </Pressable>
         </View>
@@ -96,7 +106,7 @@ export default function HomeScreen() {
           <StreakBadge count={streak} />
         </View>
 
-        {loading && reminders.length === 0 ? (
+        {!storeReady || (bootstrapping && reminders.length === 0) ? (
           <View style={styles.center}>
             <ActivityIndicator color={colors.accent} />
           </View>
@@ -113,13 +123,13 @@ export default function HomeScreen() {
               },
             ]}
             onRefresh={onRefresh}
-            refreshing={loading}
+            refreshing={isRefreshing}
             ListEmptyComponent={
               <View style={styles.empty}>
                 <Text style={styles.emptyTitle}>Nothing due today</Text>
                 <Text style={styles.emptyBody}>
-                  Add a daily task, medicine, or a one-time reminder. Type it
-                  below, or tap the mic, speak, then tap again.
+                  Add medicine, a daily task, or a one-time reminder. A family
+                  member can set these up on this phone — no account needed.
                 </Text>
               </View>
             }

@@ -83,3 +83,5 @@ export function dateFromMinutes(mins: number): Date {
 export function minutesFromDate(date: Date): number {
   return date.getHours() * 60 + date.getMinutes();
 }
+
+export * from './yaad';

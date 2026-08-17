@@ -27,7 +27,6 @@ export async function logNotification(
 
 export async function countSnoozeSignals(reminderId: string): Promise<number> {
   const database = await getDatabase();
-  // Approximate: many alert firings relative to a single reminder suggest friction
   const row = await database.getFirstAsync<{ count: number }>(
     `SELECT COUNT(*) as count FROM notification_log
      WHERE reminder_id = ? AND tier = 'alert'`,

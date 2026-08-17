@@ -54,5 +54,5 @@ export const radii = {
 export const brand = {
   motto: 'Don\u2019t remember. Just Yaad.',
   tagline: 'Everything lives on your phone alone.',
-  voiceTagline: 'Voice-first. 100% On-Device.',
+  voiceTagline: 'Voice-first. 100% on-device.',
 };

@@ -2,7 +2,7 @@ import * as Notifications from 'expo-notifications';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { MemorySplash } from '@/components/MemorySplash';
 import { colors } from '@/constants/theme';
@@ -16,7 +16,7 @@ import {
 } from '@/lib/services/notificationActions';
 import { ensureNotificationPermissions } from '@/lib/services/notifications';
 import { registerBackgroundNotificationTask } from '@/lib/tasks/backgroundNotificationTask';
-import { useReminderStore } from '@/store/useReminderStore';
+import { useYaadItemStore } from '@/store/useYaadItemStore';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -32,7 +32,6 @@ function useNotificationBridge() {
 
     const receivedSub = Notifications.addNotificationReceivedListener(
       (notification) => {
-        // Fires when Yaad is already open (foreground). Speaks the action aloud.
         speakForReceivedNotification(notification);
       },
     );
@@ -61,25 +60,31 @@ function useNotificationBridge() {
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
   const [splashDone, setSplashDone] = useState(false);
-  const bootstrap = useReminderStore((s) => s.bootstrap);
+  const bootStarted = useRef(false);
   useNotificationBridge();
 
   useEffect(() => {
+    if (bootStarted.current) return;
+    bootStarted.current = true;
     (async () => {
       try {
         await getDatabase();
         await ensureNotificationPermissions();
         await registerBackgroundNotificationTask();
         await initializeAds();
-        await bootstrap();
+        await useYaadItemStore.getState().bootstrap();
       } finally {
         setReady(true);
       }
     })();
-  }, [bootstrap]);
+  }, []);
+
+  const onSplashFinished = useCallback(() => {
+    setSplashDone(true);
+  }, []);
 
   if (!ready || !splashDone) {
-    return <MemorySplash ready={ready} onFinished={() => setSplashDone(true)} />;
+    return <MemorySplash ready={ready} onFinished={onSplashFinished} />;
   }
 
   return (
@@ -110,10 +115,7 @@ export default function RootLayout() {
             headerShown: false,
           }}
         />
-        <Stack.Screen
-          name="reminder/[id]"
-          options={{ title: 'Reminder' }}
-        />
+        <Stack.Screen name="reminder/[id]" options={{ title: 'Reminder' }} />
       </Stack>
     </>
   );

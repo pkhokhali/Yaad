@@ -74,7 +74,7 @@ export default function SettingsScreen() {
           </View>
         </View>
         <Text style={styles.leadSecondary}>
-          Notifications stay on-device. Nothing leaves your phone.
+          Reminders stay on-device. Nothing leaves this phone.
         </Text>
 
         <View style={styles.card}>

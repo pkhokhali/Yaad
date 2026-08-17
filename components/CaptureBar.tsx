@@ -90,9 +90,17 @@ export function CaptureBar({ onSubmitText, gutter = spacing.lg }: Props) {
     if (transcript) setText(transcript);
   });
 
+  const lastRestartRef = useRef(0);
+
   useSpeechRecognitionEvent('end', () => {
     setListening(false);
     if (wantedRef.current) {
+      const now = Date.now();
+      if (now - lastRestartRef.current < 400) {
+        wantedRef.current = false;
+        return;
+      }
+      lastRestartRef.current = now;
       beginSession();
       return;
     }

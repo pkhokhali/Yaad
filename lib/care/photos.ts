@@ -1,9 +1,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
 
-async function pick(
-  from: 'camera' | 'library',
-): Promise<string | null> {
+async function pick(from: 'camera' | 'library'): Promise<string | null> {
   if (from === 'camera') {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) return null;

@@ -40,6 +40,7 @@ export function useVoiceCapture(options: Options = {}) {
   const submittingRef = useRef(false);
   const optionsRef = useRef(options);
   optionsRef.current = options;
+  const lastRestartRef = useRef(0);
 
   const submitTranscript = useCallback(
     async (raw: string) => {
@@ -96,6 +97,12 @@ export function useVoiceCapture(options: Options = {}) {
   useSpeechRecognitionEvent('end', () => {
     setListening(false);
     if (wantedRef.current) {
+      const now = Date.now();
+      if (now - lastRestartRef.current < 400) {
+        wantedRef.current = false;
+        return;
+      }
+      lastRestartRef.current = now;
       beginSession();
       return;
     }
@@ -152,7 +159,9 @@ export function useVoiceCapture(options: Options = {}) {
       wantedRef.current = false;
       abortSpeechSession();
     };
-  }, [options.autoStart, startListening]);
+    // startListening is intentionally omitted — auto-start runs once per mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [options.autoStart]);
 
   return {
     listening,
