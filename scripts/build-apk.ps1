@@ -27,13 +27,15 @@ if (-not $SdkDir) {
 
 if (-not (Test-Path $AndroidDir)) {
   Write-Host 'android/ folder missing - running Expo prebuild...'
-  Push-Location $Root
-  try {
-    npx expo prebuild --platform android --non-interactive
-    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-  } finally {
-    Pop-Location
-  }
+} else {
+  Write-Host 'Syncing native Android project from app.json (AdMob, plugins)...'
+}
+Push-Location $Root
+try {
+  npx expo prebuild --platform android --non-interactive
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+} finally {
+  Pop-Location
 }
 
 New-Item -ItemType Directory -Force -Path $GradleHome | Out-Null

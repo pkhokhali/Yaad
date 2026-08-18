@@ -23,8 +23,24 @@ function Find-AndroidSdk {
 }
 
 function Ensure-UploadKeystore {
+  $legacyKeystore = Join-Path $AndroidDir 'app\yaad-upload.keystore'
+  $legacyProps = Join-Path $AndroidDir 'keystore.properties'
+
+  if (-not (Test-Path $CredentialsKeystore) -and (Test-Path $legacyKeystore)) {
+    Write-Host "Copying Play upload key to credentials/ (one-time sync)..."
+    New-Item -ItemType Directory -Force -Path (Split-Path $CredentialsKeystore -Parent) | Out-Null
+    Copy-Item $legacyKeystore $CredentialsKeystore -Force
+  }
+
+  if (-not (Test-Path $CredentialsProps) -and (Test-Path $legacyProps)) {
+    Copy-Item $legacyProps $CredentialsProps -Force
+    $props = Get-Content $CredentialsProps -Raw
+    $props = $props -replace 'storeFile=yaad-upload\.keystore', 'storeFile=../credentials/yaad-upload.keystore'
+    Set-Content -Path $CredentialsProps -Value $props -Encoding ASCII -NoNewline
+  }
+
   if ((Test-Path $CredentialsKeystore) -and (Test-Path $CredentialsProps)) {
-    Write-Host "Using existing Play upload key: $CredentialsKeystore"
+    Write-Host "Using Play upload key: $CredentialsKeystore"
     return
   }
 
@@ -42,18 +58,20 @@ if (-not $SdkDir) {
   Write-Error 'Android SDK not found. Set ANDROID_HOME or install the SDK.'
 }
 
-if (-not (Test-Path $AndroidDir)) {
-  Write-Host 'android/ folder missing — running Expo prebuild...'
-  Push-Location $Root
-  try {
-    npx expo prebuild --platform android --non-interactive
-    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-  } finally {
-    Pop-Location
-  }
+Ensure-UploadKeystore
+
+Write-Host 'Syncing native Android project from app.json (AdMob, plugins)...'
+Push-Location $Root
+try {
+  npx expo prebuild --platform android --non-interactive
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+} finally {
+  Pop-Location
 }
 
-Ensure-UploadKeystore
+Write-Host 'Syncing credentials.json for EAS...'
+& (Join-Path $Root 'scripts\sync-eas-credentials.ps1')
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host 'Bumping Android version for Play Store...'
 & (Join-Path $Root 'scripts\bump-android-version.ps1')

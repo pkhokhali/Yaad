@@ -2,7 +2,7 @@
   "expo": {
     "name": "Yaad",
     "slug": "yaad-memory",
-    "version": "1.0.5",
+    "version": "1.0.7",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "yaad",
@@ -18,7 +18,7 @@
     },
     "android": {
       "package": "com.pkhokhali.yaad",
-      "versionCode": 6,
+      "versionCode": 8,
       "adaptiveIcon": {
         "backgroundColor": "#12141A",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -26,13 +26,13 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "permissions": [
-        "RECORD_AUDIO",
-        "CAMERA",
-        "SCHEDULE_EXACT_ALARM",
-        "POST_NOTIFICATIONS",
-        "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE",
-        "USE_EXACT_ALARM",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.USE_EXACT_ALARM",
         "android.permission.USE_FULL_SCREEN_INTENT",
         "android.permission.WAKE_LOCK"
       ],
@@ -97,6 +97,7 @@
           "delayAppMeasurementInit": false
         }
       ],
+      "./plugins/withYaadAdMobAppId",
       "./plugins/withPlayServicesAdsPin",
       "./plugins/withYaadAlerts",
       "./plugins/withYaadVoiceShortcut",
@@ -114,8 +115,12 @@
         },
         "shortDescription": "Voice-first reminders. 100% on-device.",
         "fullDescription": "Don't remember. Just Yaad. Voice-first reminders stored only on your phone â€” no cloud, no accounts. Set up medicine for a parent when you visit."
+      },
+      "eas": {
+        "projectId": "9ff39ff4-b0e3-466e-af03-378b39a35f73"
       }
-    }
+    },
+    "owner": "pkhokhali"
   },
   "react-native-google-mobile-ads": {
     "android_app_id": "ca-app-pub-5729640735270473~7390242681",

@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 
+import { whenAdsReady } from '@/lib/ads/init';
 import { AD_UNITS } from '@/lib/ads/units';
 
 let loading = false;
@@ -24,6 +25,8 @@ export function preloadInterstitial(): void {
   loadAttempts += 1;
   void (async () => {
     try {
+      const ready = await whenAdsReady();
+      if (!ready) return;
       const { InterstitialAd, AdEventType } = await import(
         'react-native-google-mobile-ads'
       );
@@ -44,7 +47,12 @@ export function preloadInterstitial(): void {
         );
         const unsubError = interstitial.addAdEventListener(
           AdEventType.ERROR,
-          () => finish(false),
+          (error) => {
+            if (__DEV__) {
+              console.warn('[Interstitial] load error', error);
+            }
+            finish(false);
+          },
         );
         interstitial.load();
         setTimeout(() => finish(false), 15_000);

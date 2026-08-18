@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 
-import { useTheme } from '@/providers/ThemeProvider';
+import { whenAdsReady } from '@/lib/ads/init';
 import { AD_UNITS } from '@/lib/ads/units';
+import { useTheme } from '@/providers/ThemeProvider';
 
 type Props = {
   onHeight?: (height: number) => void;
@@ -10,10 +11,15 @@ type Props = {
 
 /** Compact banner. Never place next to the mic / CaptureBar. */
 export function AdBanner({ onHeight }: Props) {
+  const [sdkReady, setSdkReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const [nonce, setNonce] = useState(0);
   const { colors } = useTheme();
   const hidden = Platform.OS === 'web' || failed;
+
+  useEffect(() => {
+    whenAdsReady().then(setSdkReady);
+  }, []);
 
   useEffect(() => {
     if (hidden) onHeight?.(0);
@@ -28,7 +34,7 @@ export function AdBanner({ onHeight }: Props) {
     }
   }, []);
 
-  if (hidden || !Banner) return null;
+  if (hidden || !Banner || !sdkReady) return null;
 
   const { BannerAd, BannerAdSize } = Banner;
   const size =
@@ -44,9 +50,12 @@ export function AdBanner({ onHeight }: Props) {
       <BannerAd
         unitId={AD_UNITS.banner}
         size={size}
-        onAdFailedToLoad={() => {
-          if (nonce < 3) {
-            setTimeout(() => setNonce((n) => n + 1), 4000);
+        onAdFailedToLoad={(error) => {
+          if (__DEV__) {
+            console.warn('[AdBanner] failed to load', error);
+          }
+          if (nonce < 5) {
+            setTimeout(() => setNonce((n) => n + 1), 5000);
             return;
           }
           setFailed(true);
