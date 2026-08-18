@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppHeader } from '@/components/dashboard/AppHeader';
 import { SurfaceCard } from '@/components/dashboard/SurfaceCard';
+import { AdBanner } from '@/components/AdBanner';
 import { ContentColumn } from '@/components/ContentColumn';
 import { spacing } from '@/constants/theme';
 import {
@@ -180,6 +181,7 @@ export default function DashboardScreen() {
             </Pressable>
           </View>
         </ScrollView>
+        <AdBanner />
       </ContentColumn>
     </SafeAreaView>
   );

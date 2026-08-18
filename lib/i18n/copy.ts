@@ -33,8 +33,11 @@ export type Copy = {
   voiceTypeInstead: string;
   newariUnavailable: string;
   listening: string;
+  hearingYou: string;
   tapMicAgain: string;
   tapToSpeak: string;
+  pickWhatToAdd: string;
+  pauseWillSave: string;
   saveReminder: string;
   addTask: string;
   laterToday: string;
@@ -76,9 +79,12 @@ const EN: Copy = {
   voiceTypeInstead: 'You can still type in this language.',
   newariUnavailable:
     "Newari voice input isn't available on this phone yet — you can still type in Newari.",
-  listening: "Listening — tap the mic when you're done",
-  tapMicAgain: 'Tap the mic again when you’re done',
+  listening: 'Listening — speak now',
+  hearingYou: 'Hearing you…',
+  tapMicAgain: 'Pause 3 seconds when you’re done, or tap the mic',
   tapToSpeak: 'Tap the mic, then speak',
+  pickWhatToAdd: 'Choose what to add, then speak.',
+  pauseWillSave: 'A 3-second pause saves it automatically',
   saveReminder: 'Save reminder',
   addTask: 'Add a reminder',
   laterToday: 'Later today',
@@ -120,9 +126,12 @@ const NE: Copy = {
   voiceTypeInstead: 'यो भाषामा टाइप गर्न सकिन्छ।',
   newariUnavailable:
     'यो फोनमा नेपाल भाषाको आवाज सुविधा छैन — नेपाल भाषामा टाइप गर्न सकिन्छ।',
-  listening: 'सुन्दैछ — सकिएपछि माइक फेरि थिच्नुहोस्',
-  tapMicAgain: 'सकिएपछि माइक फेरि थिच्नुहोस्',
+  listening: 'सुन्दैछ — अब बोल्नुहोस्',
+  hearingYou: 'आवाज आइरहेको छ…',
+  tapMicAgain: 'सकिएपछि ३ सेकेन्ड रोक्नुहोस्, वा माइक थिच्नुहोस्',
   tapToSpeak: 'माइक थिचेर बोल्नुहोस्',
+  pickWhatToAdd: 'के थप्ने छान्नुहोस्, अनि बोल्नुहोस्।',
+  pauseWillSave: '३ सेकेन्ड रोकिएपछि आफैं सेभ हुन्छ',
   saveReminder: 'याद सेभ गर्नुहोस्',
   addTask: 'काम थप्नुहोस्',
   laterToday: 'आज पछि',
@@ -135,6 +144,6 @@ export function copyForLanguage(lang: string | undefined): Copy {
 }
 
 export function useCopy(): Copy {
-  const lang = useSettingsStore((s) => s.voiceLanguage ?? 'en');
+  const lang = useSettingsStore((s) => s.uiLanguage ?? 'en');
   return copyForLanguage(lang);
 }

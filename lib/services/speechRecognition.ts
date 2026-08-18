@@ -12,9 +12,14 @@ import {
   resolveSpeechLocale,
   VoiceLanguageOption,
 } from '@/lib/services/voiceLanguages';
+import { resolveVoiceNetworkAccess } from '@/lib/services/voiceNetwork';
+import { useSettingsStore } from '@/store/useSettingsStore';
 import { VoiceLanguage } from '@/types';
 
 export type SpeechCaptureMode = 'tap' | 'handsFree';
+
+/** Stop and process after this much silence (Android intent + JS timer). */
+export const SPEECH_PAUSE_MS = 3000;
 
 const SHARED_CONTEXT = [
   'remind me',
@@ -45,17 +50,28 @@ const SHARED_CONTEXT = [
 const ROMANIZED_NE = [
   'malai samjhau',
   'samjhau',
+  'malai yaad gara',
+  'yaad gara',
   'bholi',
   'aaja',
+  'aja',
   'parsi',
   'baje',
+  'bihana',
+  'beluka',
   'minute ma',
   'minute pachi',
+  'minute pachhi',
   'min pachi',
+  'min pachhi',
   'ghanta pachi',
   'call garnu',
   'phone garne',
+  'phone gara',
   'yaad gar',
+  'ausadhi',
+  'doctor',
+  'kharcha',
 ];
 
 export class TranscriptAccumulator {
@@ -107,9 +123,7 @@ export function contextualStringsFor(
   option: VoiceLanguageOption,
 ): string[] {
   const extra =
-    option.value === 'ne' || option.value === 'new'
-      ? ROMANIZED_NE
-      : [];
+    option.value === 'ne' || option.value === 'new' ? ROMANIZED_NE : [];
   return [...new Set([...option.contextualStrings, ...SHARED_CONTEXT, ...extra])];
 }
 
@@ -117,6 +131,8 @@ export function buildSpeechOptions(
   lang: VoiceLanguage,
   locale: string,
   _mode: SpeechCaptureMode,
+  preferOffline: boolean,
+  servicePackage?: string | null,
 ): ExpoSpeechRecognitionOptions {
   const option = getVoiceLanguageOption(lang);
   const options: ExpoSpeechRecognitionOptions = {
@@ -124,7 +140,7 @@ export function buildSpeechOptions(
     interimResults: true,
     continuous: true,
     maxAlternatives: 3,
-    requiresOnDeviceRecognition: false,
+    requiresOnDeviceRecognition: preferOffline,
     addsPunctuation: true,
     contextualStrings: contextualStringsFor(option),
     iosTaskHint: 'dictation',
@@ -132,14 +148,17 @@ export function buildSpeechOptions(
   };
 
   if (Platform.OS === 'android') {
+    if (preferOffline && servicePackage) {
+      options.androidRecognitionServicePackage = servicePackage;
+    }
     options.androidIntent = 'android.speech.action.VOICE_SEARCH_HANDS_FREE';
     options.androidIntentOptions = {
       EXTRA_LANGUAGE_MODEL: 'free_form',
-      EXTRA_PREFER_OFFLINE: false,
+      EXTRA_PREFER_OFFLINE: preferOffline,
       EXTRA_ENABLE_BIASING_DEVICE_CONTEXT: true,
-      EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS: 1500,
-      EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS: 4000,
-      EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS: 8000,
+      EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS: 1200,
+      EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS: 2000,
+      EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS: SPEECH_PAUSE_MS,
     };
   }
 
@@ -161,25 +180,78 @@ export async function startSpeechSession(
     throw new Error('Microphone permission needed');
   }
 
+  const settings = useSettingsStore.getState();
+  const uiCopy = copyForLanguage(settings.uiLanguage ?? 'en');
   const option = getVoiceLanguageOption(lang);
   const onDevice = await languageHasOnDeviceSupport(lang);
-  if (!onDevice) {
-    const copy = copyForLanguage(lang);
-    throw new Error(
-      lang === 'new' ? copy.newariUnavailable : copy.voiceUnavailable,
-    );
+  const network = await resolveVoiceNetworkAccess(
+    settings.allowVoiceOnMobileData ?? false,
+  );
+
+  if (lang === 'new' && !onDevice && !network.allowNetwork) {
+    throw new Error(uiCopy.newariUnavailable);
   }
 
-  const resolved = await resolveSpeechLocale(lang);
+  if (!onDevice && !network.allowNetwork && lang !== 'en') {
+    const englishOnDevice = await languageHasOnDeviceSupport('en');
+    if (!englishOnDevice) {
+      throw new Error(
+        network.onCellular
+          ? 'Nepali voice needs Wi‑Fi, or turn on mobile data for voice in Settings'
+          : uiCopy.voiceUnavailable,
+      );
+    }
+  }
 
-  ExpoSpeechRecognitionModule.start(
-    buildSpeechOptions(lang, resolved.locale, _mode),
-  );
+  const resolved = await resolveSpeechLocale(lang, {
+    allowNetwork: network.allowNetwork,
+    preferOffline: network.preferOffline || !network.allowNetwork,
+  });
+
+  const preferOffline = resolved.usedOfflineModel || !network.allowNetwork;
+
+  try {
+    ExpoSpeechRecognitionModule.start(
+      buildSpeechOptions(
+        lang,
+        resolved.locale,
+        _mode,
+        preferOffline,
+        resolved.servicePackage,
+      ),
+    );
+  } catch {
+    if (preferOffline && network.allowNetwork) {
+      ExpoSpeechRecognitionModule.start(
+        buildSpeechOptions(lang, resolved.locale, _mode, false, null),
+      );
+    } else if (!preferOffline) {
+      throw new Error(uiCopy.voiceUnavailable);
+    } else {
+      throw new Error(
+        network.onCellular
+          ? 'Nepali voice needs Wi‑Fi, or turn on mobile data for voice in Settings'
+          : uiCopy.voiceUnavailable,
+      );
+    }
+  }
+
+  let hint: string | null = option.hint;
+  if (resolved.usedOfflineModel && (lang === 'ne' || lang === 'new')) {
+    hint = 'Nepali offline model — no internet needed';
+  } else if (resolved.romanizedFallback) {
+    hint =
+      lang === 'ne' || lang === 'new'
+        ? 'Romanized Nepali — speak as you type in English letters'
+        : option.hint;
+  } else if (network.onCellular && !network.allowNetwork && onDevice) {
+    hint = 'Offline voice — Wi‑Fi or Settings for Google STT';
+  }
 
   return {
     locale: resolved.locale,
     usedFallback: resolved.usedFallback,
-    hint: option.hint,
+    hint,
   };
 }
 
@@ -215,6 +287,8 @@ export function normalizeSpeechTranscript(
       [/\bsamjhau\b/gi, 'samjhau'],
       [/\bminute pachhi\b/gi, 'minute pachhi'],
       [/\bmin pachhi\b/gi, 'min pachhi'],
+      [/\bmalai samjhau\b/gi, 'malai samjhau'],
+      [/\byaad gara\b/gi, 'yaad gara'],
     );
   }
 
@@ -229,30 +303,49 @@ export function speechErrorMessage(code?: string): string {
   switch (code) {
     case 'no-speech':
     case 'speech-timeout':
-      return 'No speech detected \u2014 try again, a bit closer to the mic';
+      return 'No speech detected — try again, a bit closer to the mic';
     case 'network':
       return 'Voice needs internet for this language on your phone';
     case 'language-not-supported':
-      return 'This language isn\u2019t available \u2014 try English in Settings';
+      return "This language isn't available — try English in Settings";
     case 'not-allowed':
       return 'Microphone permission needed';
     case 'busy':
-      return 'Voice is busy \u2014 wait a moment and try again';
+      return 'Voice is busy — wait a moment and try again';
     default:
-      return 'Couldn\u2019t hear that \u2014 try again';
+      return "Couldn't hear that — try again";
   }
 }
 
 export async function promptOfflineLanguageDownload(
   lang: VoiceLanguage,
-): Promise<void> {
-  if (Platform.OS !== 'android' || lang === 'en') return;
-  const { locale } = await resolveSpeechLocale(lang);
+): Promise<{ ok: boolean; message: string }> {
+  if (Platform.OS !== 'android') {
+    return { ok: false, message: 'Offline models are Android-only.' };
+  }
+  if (lang === 'ne' || lang === 'new') {
+    const { downloadNepaliOfflineModel } = await import(
+      '@/lib/services/offlineVoiceModel'
+    );
+    const result = await downloadNepaliOfflineModel();
+    return { ok: result.ok, message: result.message };
+  }
+  const { locale } = await resolveSpeechLocale(lang, {
+    allowNetwork: true,
+    preferOffline: true,
+  });
   try {
-    await ExpoSpeechRecognitionModule.androidTriggerOfflineModelDownload({
+    const result = await ExpoSpeechRecognitionModule.androidTriggerOfflineModelDownload({
       locale,
     });
-  } catch {
-    // optional enhancement
+    return {
+      ok: true,
+      message: result.message || 'Offline voice download started.',
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : 'Download failed.',
+    };
   }
 }

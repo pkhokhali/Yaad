@@ -7,7 +7,7 @@ import { ParsedCapture, Reminder } from '@/types';
 import { splitListItems, toChecklistItems } from '@/lib/parse/listItems';
 
 const PREFIX =
-  /^(remind me to|remind me|remember to|don't forget to|dont forget to|need to|yaad|याद|मलाई सम्झाउ|मलाई याद गर|सम्झाउ|सम्झनु|नबिर्स|न बिर्स|लुमंके|लुमनं|malai samjhau|samjhau|yaad gar)\s+/iu;
+  /^(remind me to|remind me|remember to|don't forget to|dont forget to|need to|yaad gara|yaad gar|yaad|याद गर|याद|मलाई सम्झाउ|मलाई याद गर|सम्झाउ|सम्झनु|नबिर्स|न बिर्स|लुमंके|लुमनं|malai samjhau|malai yaad gara|samjhau)\s+/iu;
 
 const WORD_NUMBERS: Record<string, number> = {
   एक: 1,

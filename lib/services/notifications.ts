@@ -53,12 +53,12 @@ export async function registerNotificationCategories(): Promise<void> {
     {
       identifier: 'done',
       buttonTitle: 'Done',
-      options: { opensAppToForeground: false },
+      options: { opensAppToForeground: true },
     },
     {
       identifier: 'snooze',
       buttonTitle: 'Snooze 30m',
-      options: { opensAppToForeground: false },
+      options: { opensAppToForeground: true },
     },
   ]);
 
@@ -71,12 +71,12 @@ export async function registerNotificationCategories(): Promise<void> {
     {
       identifier: 'done',
       buttonTitle: 'Done',
-      options: { opensAppToForeground: false },
+      options: { opensAppToForeground: true },
     },
     {
       identifier: 'snooze',
       buttonTitle: 'Snooze 30m',
-      options: { opensAppToForeground: false },
+      options: { opensAppToForeground: true },
     },
   ]);
 }
@@ -247,8 +247,8 @@ async function scheduleOne(
       sticky: isInterrupt,
       categoryIdentifier: categoryFor(reminder),
       data: {
-        reminderId: reminder.id,
-        tier,
+        reminderId: String(reminder.id),
+        tier: String(tier),
         kind: 'reminder',
         category: reminder.category,
         spoken,

@@ -7,6 +7,7 @@ import { AppHeader } from '@/components/dashboard/AppHeader';
 import { EmptyPanel } from '@/components/dashboard/EmptyPanel';
 import { FilterPills } from '@/components/dashboard/FilterPills';
 import { PrimaryButton } from '@/components/dashboard/PrimaryButton';
+import { AdBanner } from '@/components/AdBanner';
 import { ContentColumn } from '@/components/ContentColumn';
 import { ReminderCard } from '@/components/ReminderCard';
 import { spacing } from '@/constants/theme';
@@ -108,6 +109,7 @@ export default function RemindersScreen() {
             />
           )}
         />
+        <AdBanner />
       </ContentColumn>
     </SafeAreaView>
   );

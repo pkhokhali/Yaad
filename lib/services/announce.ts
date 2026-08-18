@@ -44,6 +44,6 @@ export function announceFromNotification(input: AnnounceInput): void {
     input.spoken?.trim() ||
     (input.title
       ? formatSpokenAlert(input.title, category, input.language, tier)
-      : [input.title, input.body].filter(Boolean).join('. '));
+      : input.title?.trim() || '');
   announceReminder(spoken, input.language);
 }

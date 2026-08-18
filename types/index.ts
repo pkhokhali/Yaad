@@ -10,6 +10,7 @@ export type RepeatRule = 'daily' | 'weekly' | 'after_visit' | null;
 export type UrgencyCurve = 'standard' | 'escalating';
 export type NotificationTier = 'nudge' | 'alert';
 export type VoiceLanguage = 'en' | 'ne' | 'new';
+export type UiLanguage = 'en' | 'ne';
 
 export type ThemeName = 'dark' | 'normal';
 export type ScaleMode = 'standard' | 'comfort';
@@ -51,6 +52,15 @@ export interface AppSettings {
   notificationSound: 'default' | 'subtle' | 'prominent';
   quietHoursEnabled: boolean;
   voiceLanguage: VoiceLanguage;
+  /** Screen copy. Independent from speech recognition language. */
+  uiLanguage: UiLanguage;
+  /**
+   * Google STT may use Wi‑Fi whenever the phone is online.
+   * Mobile data is used only when this is on.
+   */
+  allowVoiceOnMobileData: boolean;
+  /** Last time we asked Google to install the on-device Nepali pack. */
+  offlineNepaliDownloadAttemptedAt: number;
   speakAlerts: boolean;
   /** Reminders before due time (0–5). Always one alert at due time. */
   alertsBeforeCount: number;
@@ -82,6 +92,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   notificationSound: 'default',
   quietHoursEnabled: true,
   voiceLanguage: 'en',
+  uiLanguage: 'en',
+  allowVoiceOnMobileData: false,
+  offlineNepaliDownloadAttemptedAt: 0,
   speakAlerts: true,
   alertsBeforeCount: 0,
   alertsAfterCount: 1,

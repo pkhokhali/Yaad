@@ -11,6 +11,7 @@ import { preloadInterstitial } from '@/lib/ads/interstitial';
 import { maybeShowLaunchAd } from '@/lib/ads/launch';
 import { getDatabase } from '@/lib/db/database';
 import { attachYaadDeepLinkListener } from '@/lib/services/deepLinks';
+import { ensureNepaliOfflineModel } from '@/lib/services/offlineVoiceModel';
 import {
   attachDueSpeechOnForeground,
   handleNotificationResponse,
@@ -104,6 +105,7 @@ function RootLayoutInner() {
   useEffect(() => {
     if (!ready || !splashDone || !onboardingComplete) return;
     maybeShowLaunchAd().catch(() => undefined);
+    ensureNepaliOfflineModel().catch(() => undefined);
   }, [ready, splashDone, onboardingComplete]);
 
   const status = theme === 'normal' ? 'dark' : 'light';

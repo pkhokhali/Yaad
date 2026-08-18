@@ -4,8 +4,8 @@ $Root = Split-Path $PSScriptRoot -Parent
 $GradleHome = Join-Path $Root '.gradle-home'
 $AndroidDir = Join-Path $Root 'android'
 $LocalProps = Join-Path $AndroidDir 'local.properties'
-$KeystoreProps = Join-Path $AndroidDir 'keystore.properties'
-$KeystoreFile = Join-Path $AndroidDir 'app\yaad-upload.keystore'
+$CredentialsKeystore = Join-Path $Root 'credentials\yaad-upload.keystore'
+$CredentialsProps = Join-Path $Root 'credentials\keystore.properties'
 
 $env:GRADLE_USER_HOME = $GradleHome
 $env:GRADLE_OPTS = '-Dorg.gradle.daemon=false'
@@ -22,55 +22,19 @@ function Find-AndroidSdk {
   return $null
 }
 
-function Find-Keytool {
-  $sdk = Find-AndroidSdk
-  if ($sdk) {
-    $candidate = Join-Path $sdk 'build-tools\36.0.0\keytool.exe'
-    if (Test-Path $candidate) { return $candidate }
-    $found = Get-ChildItem (Join-Path $sdk 'build-tools') -Filter keytool.exe -Recurse -ErrorAction SilentlyContinue |
-      Sort-Object FullName -Descending |
-      Select-Object -First 1
-    if ($found) { return $found.FullName }
-  }
-  $javaKeytool = Get-Command keytool -ErrorAction SilentlyContinue
-  if ($javaKeytool) { return $javaKeytool.Source }
-  return $null
-}
-
 function Ensure-UploadKeystore {
-  if ((Test-Path $KeystoreFile) -and (Test-Path $KeystoreProps)) { return }
-
-  $keytool = Find-Keytool
-  if (-not $keytool) {
-    Write-Error 'Upload keystore missing and keytool not found. Install Android SDK build-tools or Java.'
+  if ((Test-Path $CredentialsKeystore) -and (Test-Path $CredentialsProps)) {
+    Write-Host "Using existing Play upload key: $CredentialsKeystore"
+    return
   }
 
-  $password = -join ((48..57 + 65..90 + 97..122) | Get-Random -Count 24 | ForEach-Object { [char]$_ })
-  Write-Host 'Creating Play Store upload keystore (first time only)...'
-  & $keytool -genkeypair -v `
-    -storetype PKCS12 `
-    -keystore $KeystoreFile `
-    -alias yaad-upload `
-    -keyalg RSA `
-    -keysize 2048 `
-    -validity 10000 `
-    -storepass $password `
-    -keypass $password `
-    -dname 'CN=Yaad, OU=Mobile, O=pkhokhali, L=Kathmandu, ST=Bagmati, C=NP'
-  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-  @(
-    "storePassword=$password"
-    "keyPassword=$password"
-    'keyAlias=yaad-upload'
-    'storeFile=yaad-upload.keystore'
-  ) | Set-Content -Path $KeystoreProps -Encoding ASCII
-
-  Write-Host ''
-  Write-Host 'IMPORTANT: Back up these files for all future Play Store updates:'
-  Write-Host "  $KeystoreFile"
-  Write-Host "  $KeystoreProps"
-  Write-Host ''
+  Write-Error @"
+Play upload keystore not found in credentials/.
+Refusing to create a new key — Play Console would reject the AAB if an earlier build used a different upload key.
+Restore:
+  credentials\yaad-upload.keystore
+  credentials\keystore.properties
+"@
 }
 
 $SdkDir = Find-AndroidSdk

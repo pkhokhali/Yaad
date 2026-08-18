@@ -8,11 +8,14 @@ function isRecent(ts: number, windowMs: number): boolean {
   return Date.now() - ms < windowMs;
 }
 
-async function openedFromReminder(): Promise<boolean> {
+async function openedFromReminderTap(): Promise<boolean> {
   try {
     const response = await Notifications.getLastNotificationResponseAsync();
-    if (response && isRecent(response.notification.date, 30_000)) {
-      return true;
+    if (response && isRecent(response.notification.date, 8_000)) {
+      const action = response.actionIdentifier ?? '';
+      const isDefault =
+        action.includes('DEFAULT') || action === 'expo.modules.notifications.actions.DEFAULT';
+      if (isDefault) return true;
     }
   } catch {
     // ignore
@@ -30,6 +33,7 @@ async function openedFromReminder(): Promise<boolean> {
 
 /** After splash + onboarding. Skip if the user opened Yaad from a reminder. */
 export async function maybeShowLaunchAd(): Promise<void> {
-  if (await openedFromReminder()) return;
+  if (await openedFromReminderTap()) return;
+  await new Promise((r) => setTimeout(r, 800));
   await showLaunchInterstitial();
 }

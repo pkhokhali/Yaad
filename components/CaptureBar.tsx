@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useSpeechRecognitionEvent } from 'expo-speech-recognition';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Platform,
   Pressable,
   StyleSheet,
@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 
+import { VoiceListeningVisual } from '@/components/VoiceListeningVisual';
 import { radii, spacing } from '@/constants/theme';
 import { useCopy } from '@/lib/i18n/copy';
 import { useScale } from '@/providers/ScaleProvider';
@@ -18,6 +19,7 @@ import { useTheme } from '@/providers/ThemeProvider';
 import {
   abortSpeechSession,
   normalizeSpeechTranscript,
+  SPEECH_PAUSE_MS,
   speechErrorMessage,
   startSpeechSession,
   stopSpeechSession,
@@ -25,9 +27,8 @@ import {
 } from '@/lib/services/speechRecognition';
 import {
   getVoiceLanguageOption,
-  listOnDeviceVoiceLanguages,
   nextVoiceLanguageFrom,
-  VoiceLanguageOption,
+  VOICE_LANGUAGE_OPTIONS,
 } from '@/lib/services/voiceLanguages';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
@@ -49,41 +50,35 @@ export function CaptureBar({ onSubmitText, gutter = spacing.lg }: Props) {
   const voiceLanguage = useSettingsStore((s) => s.voiceLanguage ?? 'en');
   const setVoiceLanguage = useSettingsStore((s) => s.setVoiceLanguage);
   const langOption = getVoiceLanguageOption(voiceLanguage);
-  const [availableLangs, setAvailableLangs] = useState<VoiceLanguageOption[]>(
-    [],
-  );
 
   const [text, setText] = useState('');
   const [listening, setListening] = useState(false);
+  const [receiving, setReceiving] = useState(false);
   const [micHint, setMicHint] = useState<string | null>(null);
   const accumulatorRef = useRef(new TranscriptAccumulator());
   const wantedRef = useRef(false);
   const startingRef = useRef(false);
-  const lastRestartRef = useRef(0);
+  const processedRef = useRef(false);
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const receivingClearRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    listOnDeviceVoiceLanguages().then((langs) => {
-      if (cancelled) return;
-      setAvailableLangs(langs);
-      if (langs.length === 0) {
-        setMicHint(copy.voiceUnavailable);
-      } else if (voiceLanguage === 'new' && !langs.some((l) => l.value === 'new')) {
-        setMicHint(copy.newariUnavailable);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [copy.newariUnavailable, copy.voiceUnavailable, voiceLanguage]);
+  const clearSilenceTimer = useCallback(() => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+  }, []);
 
   const finishWithTranscript = useCallback(() => {
+    if (processedRef.current) return;
+    processedRef.current = true;
     const finalText = normalizeSpeechTranscript(
       accumulatorRef.current.text || text.trim(),
       voiceLanguage,
     );
     accumulatorRef.current.reset();
     setText('');
+    setReceiving(false);
     if (finalText) {
       onSubmitText(finalText);
     } else {
@@ -91,55 +86,82 @@ export function CaptureBar({ onSubmitText, gutter = spacing.lg }: Props) {
     }
   }, [copy.tapToSpeak, onSubmitText, text, voiceLanguage]);
 
+  const stopAndProcess = useCallback(() => {
+    wantedRef.current = false;
+    clearSilenceTimer();
+    setListening(false);
+    try {
+      stopSpeechSession();
+    } catch {
+      finishWithTranscript();
+    }
+  }, [clearSilenceTimer, finishWithTranscript]);
+
+  const armSilenceTimer = useCallback(() => {
+    clearSilenceTimer();
+    silenceTimerRef.current = setTimeout(() => {
+      if (!wantedRef.current) return;
+      stopAndProcess();
+    }, SPEECH_PAUSE_MS);
+  }, [clearSilenceTimer, stopAndProcess]);
+
   const beginSession = useCallback(async () => {
     if (startingRef.current) return;
     startingRef.current = true;
     try {
-      await startSpeechSession(voiceLanguage, 'tap');
+      const started = await startSpeechSession(voiceLanguage, 'tap');
       if (!wantedRef.current) {
         abortSpeechSession();
         return;
       }
-      setMicHint(copy.listening);
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
+        () => undefined,
+      );
+      setMicHint(started.hint ?? copy.listening);
       setListening(true);
+      armSilenceTimer();
     } catch (err) {
       wantedRef.current = false;
       setListening(false);
+      setReceiving(false);
       setMicHint(
         err instanceof Error ? err.message : 'Microphone permission needed',
       );
     } finally {
       startingRef.current = false;
     }
-  }, [copy.listening, voiceLanguage]);
+  }, [armSilenceTimer, copy.listening, voiceLanguage]);
 
   useSpeechRecognitionEvent('result', (event) => {
     const transcript = accumulatorRef.current.update(event);
-    if (transcript) setText(transcript);
+    if (!transcript) return;
+    setText(transcript);
+    setReceiving(true);
+    setMicHint(copy.hearingYou);
+    if (receivingClearRef.current) clearTimeout(receivingClearRef.current);
+    receivingClearRef.current = setTimeout(() => setReceiving(false), 400);
+    armSilenceTimer();
   });
 
   useSpeechRecognitionEvent('end', () => {
     setListening(false);
-    if (wantedRef.current) {
-      const now = Date.now();
-      if (now - lastRestartRef.current < 400) {
-        wantedRef.current = false;
-        return;
-      }
-      lastRestartRef.current = now;
-      beginSession();
-      return;
-    }
+    setReceiving(false);
+    clearSilenceTimer();
+    wantedRef.current = false;
     finishWithTranscript();
   });
 
   useSpeechRecognitionEvent('error', (event) => {
-    if (wantedRef.current && event.error === 'no-speech') {
-      beginSession();
-      return;
+    if (event.error === 'no-speech' || event.error === 'speech-timeout') {
+      if (accumulatorRef.current.text || text.trim()) {
+        stopAndProcess();
+        return;
+      }
     }
     wantedRef.current = false;
+    clearSilenceTimer();
     setListening(false);
+    setReceiving(false);
     setMicHint(speechErrorMessage(event.error));
   });
 
@@ -151,30 +173,38 @@ export function CaptureBar({ onSubmitText, gutter = spacing.lg }: Props) {
   }, [text, onSubmitText]);
 
   const cycleLanguage = useCallback(() => {
-    if (listening || wantedRef.current || availableLangs.length < 2) return;
+    if (listening || wantedRef.current) return;
     setMicHint(null);
-    setVoiceLanguage(nextVoiceLanguageFrom(voiceLanguage, availableLangs));
-  }, [availableLangs, listening, setVoiceLanguage, voiceLanguage]);
+    setVoiceLanguage(
+      nextVoiceLanguageFrom(voiceLanguage, VOICE_LANGUAGE_OPTIONS),
+    );
+  }, [listening, setVoiceLanguage, voiceLanguage]);
 
   const toggleListening = useCallback(() => {
     if (wantedRef.current) {
-      wantedRef.current = false;
-      setMicHint(null);
-      try {
-        stopSpeechSession();
-      } catch {
-        setListening(false);
-        finishWithTranscript();
-      }
+      stopAndProcess();
       return;
     }
 
     setMicHint(copy.listening);
     wantedRef.current = true;
+    processedRef.current = false;
     accumulatorRef.current.reset();
     setText('');
     beginSession();
-  }, [beginSession, copy.listening, finishWithTranscript]);
+  }, [beginSession, copy.listening, stopAndProcess]);
+
+  useEffect(
+    () => () => {
+      clearSilenceTimer();
+      if (receivingClearRef.current) clearTimeout(receivingClearRef.current);
+      wantedRef.current = false;
+      abortSpeechSession();
+    },
+    [clearSilenceTimer],
+  );
+
+  const micSize = scale.minHitTarget;
 
   return (
     <View
@@ -219,7 +249,6 @@ export function CaptureBar({ onSubmitText, gutter = spacing.lg }: Props) {
             <Ionicons name="arrow-up" size={18} color="#1A1C21" />
           </Pressable>
         ) : null}
-        {availableLangs.length > 1 ? (
         <Pressable
           onPress={cycleLanguage}
           style={[
@@ -234,31 +263,45 @@ export function CaptureBar({ onSubmitText, gutter = spacing.lg }: Props) {
             {langOption.short}
           </Text>
         </Pressable>
-        ) : null}
-        <Pressable
-          onPress={toggleListening}
-          style={({ pressed }) => [
-            styles.mic,
-            {
-              width: scale.minHitTarget,
-              height: scale.minHitTarget,
-              borderRadius: scale.minHitTarget / 2,
-              backgroundColor: listening ? colors.accent : colors.accentSoft,
-            },
-            pressed && styles.micPressed,
-          ]}
-          accessibilityLabel={
-            listening
-              ? 'Stop listening'
-              : `Tap to speak a reminder in ${langOption.nativeLabel}`
-          }
+        <View
+          style={{
+            width: micSize + 8,
+            height: micSize + 8,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
         >
-          {listening ? (
-            <ActivityIndicator color="#1A1C21" size="small" />
-          ) : (
-            <Ionicons name="mic" size={20} color={colors.accent} />
-          )}
-        </Pressable>
+          <VoiceListeningVisual
+            listening={listening}
+            receiving={receiving}
+            size={micSize}
+          />
+          <Pressable
+            onPress={toggleListening}
+            style={({ pressed }) => [
+              styles.mic,
+              {
+                width: micSize,
+                height: micSize,
+                borderRadius: micSize / 2,
+                backgroundColor: listening ? colors.accent : colors.accentSoft,
+                zIndex: 1,
+              },
+              pressed && styles.micPressed,
+            ]}
+            accessibilityLabel={
+              listening
+                ? 'Stop listening'
+                : `Tap to speak a reminder in ${langOption.nativeLabel}`
+            }
+          >
+            <Ionicons
+              name={listening ? 'radio' : 'mic'}
+              size={20}
+              color={listening ? '#1A1C21' : colors.accent}
+            />
+          </Pressable>
+        </View>
       </View>
       {Platform.OS === 'ios' ? <View style={styles.homeIndicator} /> : null}
     </View>

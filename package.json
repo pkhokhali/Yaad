@@ -1,7 +1,7 @@
 {
   "name": "yaad",
   "main": "index.js",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -16,6 +16,7 @@
     "expo-haptics": "~57.0.1",
     "expo-image-picker": "~57.0.9",
     "expo-linking": "~57.0.5",
+    "expo-network": "~57.0.1",
     "expo-notifications": "~57.0.10",
     "expo-router": "~57.0.12",
     "expo-speech": "~57.0.1",

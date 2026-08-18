@@ -79,7 +79,7 @@ export async function submitVoiceCapture(
       await addReminder(
         {
           title: parsed.title,
-          notes: parsed.rawText,
+          notes: null,
           due_at: parsed.dueAt.getTime(),
           category,
           repeat_rule,
@@ -117,5 +117,5 @@ export function openVoiceCapture(options?: {
 }
 
 export function openGuidedVoiceCapture(): void {
-  openVoiceCapture({ guided: true, autoListen: true });
+  openVoiceCapture({ guided: true, autoListen: false });
 }

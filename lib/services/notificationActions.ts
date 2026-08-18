@@ -13,7 +13,26 @@ import {
 } from '@/lib/services/notifications';
 import { loadPersistedSettings } from '@/lib/settings/loadSettings';
 import { extractPhone, parseVoiceReply } from '@/lib/services/voiceReply';
+import { useYaadItemStore } from '@/store/useYaadItemStore';
 import { AppSettings, Category } from '@/types';
+
+function reminderIdFromResponse(
+  response: Notifications.NotificationResponse,
+  data?: { reminderId?: string },
+): string | undefined {
+  if (typeof data?.reminderId === 'string' && data.reminderId) {
+    return data.reminderId;
+  }
+  const identifier = response.notification.request.identifier ?? '';
+  const match = /^yaad:([^:]+):/.exec(identifier);
+  return match?.[1];
+}
+
+function normalizeAction(action: string): string {
+  const raw = action.trim();
+  const last = raw.split('.').pop() ?? raw;
+  return last.toLowerCase();
+}
 
 let lastHandledKey = '';
 let lastSpokenKey = '';
@@ -144,15 +163,16 @@ export async function processNotificationResponse(
         tier?: 'nudge' | 'alert' | 'insist1' | 'insist2';
       }
     | undefined;
-  const reminderId = data?.reminderId;
-  const action = response.actionIdentifier;
+  const reminderId = reminderIdFromResponse(response, data);
+  const action = normalizeAction(response.actionIdentifier);
   const isDefault =
-    action === Notifications.DEFAULT_ACTION_IDENTIFIER ||
-    action === 'expo.modules.notifications.actions.DEFAULT';
+    action === 'default' ||
+    response.actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER ||
+    response.actionIdentifier === 'expo.modules.notifications.actions.DEFAULT';
 
   const settings = await loadPersistedSettings();
 
-  if (data?.kind !== 'sweep') {
+  if (data?.kind !== 'sweep' && isDefault) {
     await speakNotificationPayload(
       data as Record<string, unknown> | undefined,
       response.notification.request.content.title,
@@ -180,7 +200,7 @@ export async function processNotificationResponse(
 
   if (!reminderId) return;
 
-  let intent = action as string;
+  let intent = action;
   if (action === 'voice') {
     if (!allowNavigation) return;
     const parsed = parseVoiceReply(response.userText ?? '');
@@ -193,6 +213,7 @@ export async function processNotificationResponse(
 
   if (intent === 'done') {
     await completeReminderHeadless(reminderId, settings);
+    await useYaadItemStore.getState().refresh().catch(() => undefined);
     await Notifications.dismissNotificationAsync(
       response.notification.request.identifier,
     ).catch(() => undefined);
@@ -204,6 +225,7 @@ export async function processNotificationResponse(
 
   if (intent === 'snooze') {
     await snoozeReminderHeadless(reminderId, 30, settings);
+    await useYaadItemStore.getState().refresh().catch(() => undefined);
     await Notifications.dismissNotificationAsync(
       response.notification.request.identifier,
     ).catch(() => undefined);

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Yaad",
     "slug": "yaad-memory",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "yaad",
@@ -18,7 +18,7 @@
     },
     "android": {
       "package": "com.pkhokhali.yaad",
-      "versionCode": 5,
+      "versionCode": 6,
       "adaptiveIcon": {
         "backgroundColor": "#12141A",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -93,12 +93,14 @@
         "react-native-google-mobile-ads",
         {
           "androidAppId": "ca-app-pub-5729640735270473~7390242681",
-          "iosAppId": "ca-app-pub-3940256099942544~1458002511"
+          "iosAppId": "ca-app-pub-3940256099942544~1458002511",
+          "delayAppMeasurementInit": false
         }
       ],
       "./plugins/withPlayServicesAdsPin",
       "./plugins/withYaadAlerts",
-      "./plugins/withYaadVoiceShortcut"
+      "./plugins/withYaadVoiceShortcut",
+      "./plugins/withYaadReleaseSigning"
     ],
     "experiments": {
       "typedRoutes": true
@@ -118,6 +120,6 @@
   "react-native-google-mobile-ads": {
     "android_app_id": "ca-app-pub-5729640735270473~7390242681",
     "ios_app_id": "ca-app-pub-3940256099942544~1458002511",
-    "delay_app_measurement_init": true
+    "delay_app_measurement_init": false
   }
 }

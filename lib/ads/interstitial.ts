@@ -8,6 +8,7 @@ let loadedAd: {
   show: () => Promise<void>;
 } | null = null;
 let loadWaiters: Array<(ready: boolean) => void> = [];
+let loadAttempts = 0;
 
 function notifyWaiters(ready: boolean) {
   const waiters = loadWaiters;
@@ -18,16 +19,15 @@ function notifyWaiters(ready: boolean) {
 /** Load a full-screen ad in the background. Safe to call more than once. */
 export function preloadInterstitial(): void {
   if (Platform.OS === 'web' || loading || loadedAd) return;
+  if (loadAttempts >= 4) return;
   loading = true;
+  loadAttempts += 1;
   void (async () => {
     try {
       const { InterstitialAd, AdEventType } = await import(
         'react-native-google-mobile-ads'
       );
-      const interstitial = InterstitialAd.createForAdRequest(
-        AD_UNITS.interstitial,
-        { requestNonPersonalizedAdsOnly: true },
-      );
+      const interstitial = InterstitialAd.createForAdRequest(AD_UNITS.interstitial);
       await new Promise<void>((resolve) => {
         let settled = false;
         const finish = (ready: boolean) => {
@@ -47,20 +47,23 @@ export function preloadInterstitial(): void {
           () => finish(false),
         );
         interstitial.load();
-        setTimeout(() => finish(false), 8000);
+        setTimeout(() => finish(false), 15_000);
       });
     } catch {
       loadedAd = null;
     } finally {
       loading = false;
       notifyWaiters(Boolean(loadedAd));
+      if (!loadedAd && loadAttempts < 4) {
+        setTimeout(() => preloadInterstitial(), 2500);
+      }
     }
   })();
 }
 
 function waitForPreload(ms: number): Promise<boolean> {
   if (loadedAd) return Promise.resolve(true);
-  if (!loading) return Promise.resolve(false);
+  if (!loading && !loadedAd) preloadInterstitial();
   return new Promise((resolve) => {
     const timer = setTimeout(() => resolve(Boolean(loadedAd)), ms);
     loadWaiters.push((ready) => {
@@ -78,7 +81,7 @@ export async function showLaunchInterstitial(): Promise<void> {
   if (Platform.OS === 'web' || shownThisProcess) return;
   try {
     if (!loadedAd) preloadInterstitial();
-    const ready = loadedAd ? true : await waitForPreload(6000);
+    const ready = loadedAd ? true : await waitForPreload(12_000);
     if (!ready || !loadedAd) return;
     const ad = loadedAd;
     loadedAd = null;

@@ -1,4 +1,5 @@
 import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
+import { Platform } from 'react-native';
 
 import { VoiceLanguage } from '@/types';
 
@@ -105,13 +106,12 @@ export async function languageHasOnDeviceSupport(
   lang: VoiceLanguage,
 ): Promise<boolean> {
   const option = getVoiceLanguageOption(lang);
-  const { installed, supported } = await getRecognizerLocales();
-  const pool = installed.length > 0 ? installed : supported;
+  const { installed } = await getRecognizerLocales();
   const wanted =
     lang === 'new'
       ? option.locales.filter((code) => localePrefix(code) === 'new')
       : option.locales;
-  return wanted.some((code) => Boolean(findSupported(pool, code)));
+  return wanted.some((code) => Boolean(findSupported(installed, code)));
 }
 
 export async function listOnDeviceVoiceLanguages(): Promise<
@@ -158,65 +158,153 @@ function findSupported(
 export type ResolvedSpeechLocale = {
   locale: string;
   usedFallback: boolean;
+  usedOfflineModel: boolean;
+  romanizedFallback: boolean;
+  servicePackage: string | null;
 };
+
+const GOOGLE_ONDEVICE_PACKAGES = [
+  'com.google.android.as',
+  'com.google.android.tts',
+  'com.google.android.googlequicksearchbox',
+];
 
 async function getRecognizerLocales(): Promise<{
   supported: string[];
   installed: string[];
+  installedPackage: string | null;
 }> {
-  try {
-    const result = await ExpoSpeechRecognitionModule.getSupportedLocales({});
-    return {
-      supported: result.locales ?? [],
-      installed: result.installedLocales ?? [],
-    };
-  } catch {
-    return { supported: [], installed: [] };
+  const supported = new Set<string>();
+  const installed = new Set<string>();
+  let installedPackage: string | null = null;
+  let fallbackPackage: string | null = null;
+
+  const packages: Array<string | undefined> = [undefined];
+  if (Platform.OS === 'android') {
+    try {
+      const services =
+        ExpoSpeechRecognitionModule.getSpeechRecognitionServices?.() ?? [];
+      for (const pkg of GOOGLE_ONDEVICE_PACKAGES) {
+        if (services.includes(pkg)) packages.push(pkg);
+      }
+    } catch {
+      // keep default only
+    }
   }
+
+  for (const pkg of packages) {
+    try {
+      const result = await ExpoSpeechRecognitionModule.getSupportedLocales({
+        ...(pkg ? { androidRecognitionServicePackage: pkg } : {}),
+      });
+      for (const code of result.locales ?? []) supported.add(code);
+      const packInstalled = result.installedLocales ?? [];
+      if (packInstalled.length > 0 && !fallbackPackage) {
+        fallbackPackage = pkg ?? null;
+      }
+      for (const code of packInstalled) {
+        installed.add(code);
+        if (
+          !installedPackage &&
+          (findSupported([code], 'ne-NP') || findSupported([code], 'ne'))
+        ) {
+          installedPackage = pkg ?? null;
+        }
+      }
+    } catch {
+      // service may not answer
+    }
+  }
+
+  return {
+    supported: [...supported],
+    installed: [...installed],
+    installedPackage: installedPackage ?? fallbackPackage,
+  };
 }
 
 /**
- * Pick a locale the recognizer can use. Network Google STT often accepts ne-NP
- * even when it is not listed as installed offline.
+ * Pick a locale the recognizer can use.
+ * Nepali: on-device ne-NP when installed; else Google network STT (Devanagari
+ * or romanized). If offline with no Nepali model, fall back to English STT
+ * with romanized-Nepali biasing so it still works without internet.
  */
 export async function resolveSpeechLocale(
   lang: VoiceLanguage,
+  network?: { allowNetwork: boolean; preferOffline: boolean },
 ): Promise<ResolvedSpeechLocale> {
   const option = getVoiceLanguageOption(lang);
   const primary = option.locales[0];
-  const { supported, installed } = await getRecognizerLocales();
+  const allowNetwork = network?.allowNetwork ?? true;
+  const preferOffline = network?.preferOffline ?? false;
+  const { supported, installed, installedPackage } = await getRecognizerLocales();
 
-  const pickFromLists = (codes: string[]) => {
+  const pickFrom = (pool: string[], codes: string[]) => {
     for (const code of codes) {
-      const installedHit = findSupported(installed, code);
-      if (installedHit) {
-        return {
-          locale: installedHit,
-          usedFallback: localePrefix(installedHit) !== localePrefix(primary),
-        };
-      }
-      const supportedHit = findSupported(supported, code);
-      if (supportedHit) {
-        return {
-          locale: supportedHit,
-          usedFallback: localePrefix(supportedHit) !== localePrefix(primary),
-        };
-      }
+      const hit = findSupported(pool, code);
+      if (hit) return hit;
     }
     return null;
   };
 
   if (lang === 'new') {
-    const native = pickFromLists(
+    const nativeInstalled = pickFrom(
+      installed,
       option.locales.filter((code) => localePrefix(code) === 'new'),
     );
-    if (native) return native;
-    return { locale: 'new-NP', usedFallback: true };
+    if (nativeInstalled) {
+      return {
+        locale: nativeInstalled,
+        usedFallback: false,
+        usedOfflineModel: true,
+        romanizedFallback: false,
+        servicePackage: installedPackage,
+      };
+    }
   }
 
-  const hit = pickFromLists(option.locales);
-  if (hit) return hit;
+  const installedHit = pickFrom(installed, option.locales);
+  if (installedHit) {
+    return {
+      locale: installedHit,
+      usedFallback: localePrefix(installedHit) !== localePrefix(primary),
+      usedOfflineModel: true,
+      romanizedFallback: false,
+      servicePackage: installedPackage,
+    };
+  }
 
-  // Request primary — Google network STT often still works (especially ne-NP).
-  return { locale: primary, usedFallback: false };
+  if (allowNetwork && !preferOffline) {
+    const supportedHit = pickFrom(supported, option.locales);
+    return {
+      locale: supportedHit ?? primary,
+      usedFallback: false,
+      usedOfflineModel: false,
+      romanizedFallback: false,
+      servicePackage: null,
+    };
+  }
+
+  if (lang === 'ne' || lang === 'new') {
+    const englishOffline =
+      pickFrom(installed, ['en-IN', 'en-US', 'en']) ??
+      pickFrom(supported, ['en-IN', 'en-US', 'en']);
+    if (englishOffline) {
+      return {
+        locale: englishOffline,
+        usedFallback: true,
+        usedOfflineModel: Boolean(pickFrom(installed, ['en-IN', 'en-US', 'en'])),
+        romanizedFallback: true,
+        servicePackage: installedPackage,
+      };
+    }
+  }
+
+  return {
+    locale: primary,
+    usedFallback: false,
+    usedOfflineModel: false,
+    romanizedFallback: false,
+    servicePackage: null,
+  };
 }

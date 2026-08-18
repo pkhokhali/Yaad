@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '@/providers/ThemeProvider';
@@ -8,9 +8,10 @@ type Props = {
   onHeight?: (height: number) => void;
 };
 
-/** Compact 50pt banner. Never place next to the mic / CaptureBar. */
+/** Compact banner. Never place next to the mic / CaptureBar. */
 export function AdBanner({ onHeight }: Props) {
   const [failed, setFailed] = useState(false);
+  const [nonce, setNonce] = useState(0);
   const { colors } = useTheme();
   const hidden = Platform.OS === 'web' || failed;
 
@@ -18,31 +19,41 @@ export function AdBanner({ onHeight }: Props) {
     if (hidden) onHeight?.(0);
   }, [hidden, onHeight]);
 
-  if (hidden) return null;
+  const Banner = useMemo(() => {
+    if (Platform.OS === 'web') return null;
+    try {
+      return require('react-native-google-mobile-ads') as typeof import('react-native-google-mobile-ads');
+    } catch {
+      return null;
+    }
+  }, []);
 
-  try {
-    const {
-      BannerAd,
-      BannerAdSize,
-    } = require('react-native-google-mobile-ads') as typeof import('react-native-google-mobile-ads');
+  if (hidden || !Banner) return null;
 
-    return (
-      <View
-        style={[styles.wrap, { backgroundColor: colors.surface }]}
-        onLayout={(e) => onHeight?.(e.nativeEvent.layout.height)}
-        pointerEvents="box-none"
-      >
-        <BannerAd
-          unitId={AD_UNITS.banner}
-          size={BannerAdSize.BANNER}
-          requestOptions={{ requestNonPersonalizedAdsOnly: true }}
-          onAdFailedToLoad={() => setFailed(true)}
-        />
-      </View>
-    );
-  } catch {
-    return null;
-  }
+  const { BannerAd, BannerAdSize } = Banner;
+  const size =
+    BannerAdSize.ANCHORED_ADAPTIVE_BANNER ?? BannerAdSize.BANNER;
+
+  return (
+    <View
+      key={nonce}
+      style={[styles.wrap, { backgroundColor: colors.surface }]}
+      onLayout={(e) => onHeight?.(e.nativeEvent.layout.height)}
+      pointerEvents="box-none"
+    >
+      <BannerAd
+        unitId={AD_UNITS.banner}
+        size={size}
+        onAdFailedToLoad={() => {
+          if (nonce < 3) {
+            setTimeout(() => setNonce((n) => n + 1), 4000);
+            return;
+          }
+          setFailed(true);
+        }}
+      />
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({

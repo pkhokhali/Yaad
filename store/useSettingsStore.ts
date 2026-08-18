@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { clampAlertCount, migrateLegacyAlertStrength } from '@/lib/care/alerts';
-import { AppSettings, DEFAULT_SETTINGS, ScaleMode, ThemeName, UrgencyCurve, VoiceLanguage } from '@/types';
+import { AppSettings, DEFAULT_SETTINGS, ScaleMode, ThemeName, UiLanguage, UrgencyCurve, VoiceLanguage } from '@/types';
 
 type SettingsState = AppSettings & {
   hydrated: boolean;
@@ -13,6 +13,9 @@ type SettingsState = AppSettings & {
   setDefaultUrgencyCurve: (curve: UrgencyCurve) => void;
   setNotificationSound: (sound: AppSettings['notificationSound']) => void;
   setVoiceLanguage: (voiceLanguage: VoiceLanguage) => void;
+  setUiLanguage: (uiLanguage: UiLanguage) => void;
+  setAllowVoiceOnMobileData: (allowVoiceOnMobileData: boolean) => void;
+  setOfflineNepaliDownloadAttemptedAt: (at: number) => void;
   setSpeakAlerts: (speakAlerts: boolean) => void;
   setAlertsBeforeCount: (count: number) => void;
   setAlertsAfterCount: (count: number) => void;
@@ -31,6 +34,12 @@ function snapshot(s: SettingsState): AppSettings {
     notificationSound: s.notificationSound,
     quietHoursEnabled: s.quietHoursEnabled,
     voiceLanguage: s.voiceLanguage ?? DEFAULT_SETTINGS.voiceLanguage,
+    uiLanguage: s.uiLanguage ?? DEFAULT_SETTINGS.uiLanguage,
+    allowVoiceOnMobileData:
+      s.allowVoiceOnMobileData ?? DEFAULT_SETTINGS.allowVoiceOnMobileData,
+    offlineNepaliDownloadAttemptedAt:
+      s.offlineNepaliDownloadAttemptedAt ??
+      DEFAULT_SETTINGS.offlineNepaliDownloadAttemptedAt,
     speakAlerts: s.speakAlerts ?? DEFAULT_SETTINGS.speakAlerts,
     alertsBeforeCount: clampAlertCount(
       s.alertsBeforeCount ?? DEFAULT_SETTINGS.alertsBeforeCount,
@@ -59,6 +68,11 @@ export const useSettingsStore = create<SettingsState>()(
         set({ defaultUrgencyCurve }),
       setNotificationSound: (notificationSound) => set({ notificationSound }),
       setVoiceLanguage: (voiceLanguage) => set({ voiceLanguage }),
+      setUiLanguage: (uiLanguage) => set({ uiLanguage }),
+      setAllowVoiceOnMobileData: (allowVoiceOnMobileData) =>
+        set({ allowVoiceOnMobileData }),
+      setOfflineNepaliDownloadAttemptedAt: (offlineNepaliDownloadAttemptedAt) =>
+        set({ offlineNepaliDownloadAttemptedAt }),
       setSpeakAlerts: (speakAlerts) => set({ speakAlerts }),
       setAlertsBeforeCount: (count) =>
         set({ alertsBeforeCount: clampAlertCount(count) }),
@@ -88,6 +102,19 @@ export const useSettingsStore = create<SettingsState>()(
         state.hydrated = true;
         if (!state.voiceLanguage) {
           state.voiceLanguage = DEFAULT_SETTINGS.voiceLanguage;
+        }
+        if (state.uiLanguage !== 'en' && state.uiLanguage !== 'ne') {
+          state.uiLanguage =
+            state.voiceLanguage === 'ne' || state.voiceLanguage === 'new'
+              ? 'ne'
+              : 'en';
+        }
+        if (state.allowVoiceOnMobileData == null) {
+          state.allowVoiceOnMobileData =
+            DEFAULT_SETTINGS.allowVoiceOnMobileData;
+        }
+        if (state.offlineNepaliDownloadAttemptedAt == null) {
+          state.offlineNepaliDownloadAttemptedAt = 0;
         }
         if (state.speakAlerts == null) {
           state.speakAlerts = DEFAULT_SETTINGS.speakAlerts;
@@ -139,6 +166,10 @@ export const useSettingsStore = create<SettingsState>()(
         notificationSound: state.notificationSound,
         quietHoursEnabled: state.quietHoursEnabled,
         voiceLanguage: state.voiceLanguage,
+        uiLanguage: state.uiLanguage,
+        allowVoiceOnMobileData: state.allowVoiceOnMobileData,
+        offlineNepaliDownloadAttemptedAt:
+          state.offlineNepaliDownloadAttemptedAt,
         speakAlerts: state.speakAlerts,
         alertsBeforeCount: state.alertsBeforeCount,
         alertsAfterCount: state.alertsAfterCount,

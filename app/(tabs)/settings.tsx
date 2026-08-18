@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   Linking,
   Platform,
   Pressable,
@@ -26,6 +28,10 @@ import {
 } from '@/lib/care/alerts';
 import { useCopy } from '@/lib/i18n/copy';
 import { promptOfflineLanguageDownload } from '@/lib/services/speechRecognition';
+import {
+  downloadNepaliOfflineModel,
+  getNepaliOfflineStatus,
+} from '@/lib/services/offlineVoiceModel';
 import { rescheduleOpenReminders } from '@/lib/services/notifications';
 import { openGuidedVoiceCapture } from '@/lib/services/voiceCapture';
 import { VOICE_LANGUAGE_OPTIONS } from '@/lib/services/voiceLanguages';
@@ -36,6 +42,7 @@ import { useYaadItemStore } from '@/store/useYaadItemStore';
 import {
   ScaleMode,
   ThemeName,
+  UiLanguage,
   dateFromMinutes,
   minutesFromDate,
   minutesToClockLabel,
@@ -212,6 +219,10 @@ export default function SettingsScreen() {
   const quietHoursEnd = useSettingsStore((s) => s.quietHoursEnd);
   const notificationSound = useSettingsStore((s) => s.notificationSound);
   const voiceLanguage = useSettingsStore((s) => s.voiceLanguage ?? 'en');
+  const uiLanguage = useSettingsStore((s) => s.uiLanguage ?? 'en');
+  const allowVoiceOnMobileData = useSettingsStore(
+    (s) => s.allowVoiceOnMobileData ?? false,
+  );
   const alertsBeforeCount = useSettingsStore(
     (s) => s.alertsBeforeCount ?? 0,
   );
@@ -220,13 +231,78 @@ export default function SettingsScreen() {
   const setQuietHours = useSettingsStore((s) => s.setQuietHours);
   const setNotificationSound = useSettingsStore((s) => s.setNotificationSound);
   const setVoiceLanguage = useSettingsStore((s) => s.setVoiceLanguage);
+  const setUiLanguage = useSettingsStore((s) => s.setUiLanguage);
+  const setAllowVoiceOnMobileData = useSettingsStore(
+    (s) => s.setAllowVoiceOnMobileData,
+  );
   const speakAlerts = useSettingsStore((s) => s.speakAlerts ?? true);
   const setSpeakAlerts = useSettingsStore((s) => s.setSpeakAlerts);
   const setAlertsBeforeCount = useSettingsStore((s) => s.setAlertsBeforeCount);
   const setAlertsAfterCount = useSettingsStore((s) => s.setAlertsAfterCount);
   const [picking, setPicking] = useState<'start' | 'end' | null>(null);
+  const [offlineNepali, setOfflineNepali] = useState<
+    'checking' | 'ready' | 'missing' | 'unavailable'
+  >('checking');
+  const [downloadingNepali, setDownloadingNepali] = useState(false);
 
   const styles = useMemo(() => makeStyles(colors), [colors]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') {
+      setOfflineNepali('unavailable');
+      return;
+    }
+    let cancelled = false;
+    getNepaliOfflineStatus()
+      .then((status) => {
+        if (cancelled) return;
+        setOfflineNepali(
+          status.installed
+            ? 'ready'
+            : status.canDownload
+              ? 'missing'
+              : 'unavailable',
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setOfflineNepali('unavailable');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [voiceLanguage, downloadingNepali]);
+
+  const refreshNepaliPack = async () => {
+    const status = await getNepaliOfflineStatus();
+    setOfflineNepali(
+      status.installed
+        ? 'ready'
+        : status.canDownload
+          ? 'missing'
+          : 'unavailable',
+    );
+  };
+
+  const installNepaliPack = async () => {
+    if (downloadingNepali) return;
+    setDownloadingNepali(true);
+    try {
+      const result = await downloadNepaliOfflineModel();
+      Alert.alert(
+        result.ok
+          ? uiLanguage === 'ne'
+            ? 'नेपाली अफलाइन आवाज'
+            : 'Nepali offline voice'
+          : uiLanguage === 'ne'
+            ? 'डाउनलोड भएन'
+            : 'Download did not finish',
+        result.message,
+      );
+      await refreshNepaliPack();
+    } finally {
+      setDownloadingNepali(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
@@ -452,17 +528,46 @@ export default function SettingsScreen() {
               </Pressable>
             ) : null}
             <Text style={[styles.rowHint, { marginTop: spacing.md }]}>
-              Assistant phrases may take a day to sync after install. Yaad
-              listens on-device — nothing is sent to the cloud.
+              Assistant phrases may take a day to sync after install. Reminders
+              stay on this phone. Voice can use Google STT on Wi‑Fi (or mobile
+              data if you turn that on).
             </Text>
           </View>
 
-          <Text style={styles.section}>Voice language</Text>
+          <Text style={styles.section}>
+            {uiLanguage === 'ne' ? 'एप भाषा' : 'App language'}
+          </Text>
+          <View style={styles.card}>
+            <Text style={[styles.rowHint, { marginBottom: spacing.md }]}>
+              {uiLanguage === 'ne'
+                ? 'स्क्रिनको लेखाइ। आवाजको भाषा छुट्टै तल छ।'
+                : 'Screen text only. Voice input language is separate, below.'}
+            </Text>
+            <Segmented<UiLanguage>
+              value={uiLanguage}
+              onChange={setUiLanguage}
+              options={[
+                { value: 'en', label: 'English' },
+                { value: 'ne', label: 'नेपाली' },
+              ]}
+            />
+          </View>
+
+          <Text style={styles.section}>
+            {uiLanguage === 'ne' ? 'आवाज भाषा' : 'Voice language'}
+          </Text>
           <View style={styles.card}>
             {VOICE_LANGUAGE_OPTIONS.map((lang, idx, arr) => (
               <Pressable
                 key={lang.value}
-                onPress={() => setVoiceLanguage(lang.value)}
+                onPress={() => {
+                  setVoiceLanguage(lang.value);
+                  if (lang.value === 'ne' || lang.value === 'new') {
+                    void getNepaliOfflineStatus().then((status) => {
+                      if (!status.installed) void installNepaliPack();
+                    });
+                  }
+                }}
                 style={[
                   styles.choice,
                   idx < arr.length - 1 && styles.choiceBorder,
@@ -488,9 +593,9 @@ export default function SettingsScreen() {
             ) : null}
             {voiceLanguage === 'ne' ? (
               <Text style={styles.fallbackNote}>
-                Nepali works best with internet on. Speak clearly, include the
-                time (“2 minute pachhi”, “भोलि 8 बजे”). Romanized Nepali from
-                Google STT is supported too.
+                {uiLanguage === 'ne'
+                  ? 'Google को नेपाली अफलाइन मोडेल डाउनलोड भएपछि इन्टरनेट बिना पनि चल्छ। नभएसम्म Wi‑Fi मा अनलाइन STT प्रयोग हुन्छ।'
+                  : 'Once Google’s Nepali offline pack is installed, voice works without internet. Until then Yaad uses Google STT on Wi‑Fi.'}
               </Text>
             ) : null}
             {voiceLanguage === 'en' ? (
@@ -499,20 +604,95 @@ export default function SettingsScreen() {
                 Tap the mic, speak, then tap again.
               </Text>
             ) : null}
-            {Platform.OS === 'android' && voiceLanguage !== 'en' ? (
+            {Platform.OS === 'android' ? (
+              <View style={{ marginTop: spacing.md }}>
+                <Text style={styles.rowTitle}>
+                  {uiLanguage === 'ne'
+                    ? 'नेपाली अफलाइन मोडेल'
+                    : 'Nepali offline model'}
+                </Text>
+                <Text style={[styles.rowHint, { marginTop: 4 }]}>
+                  {offlineNepali === 'ready'
+                    ? uiLanguage === 'ne'
+                      ? 'यो फोनमा तयार छ — इन्टरनेट बिना चल्छ।'
+                      : 'Installed on this phone — works without internet.'
+                    : offlineNepali === 'checking'
+                      ? uiLanguage === 'ne'
+                        ? 'जाँच गर्दै…'
+                        : 'Checking…'
+                      : uiLanguage === 'ne'
+                        ? 'Google Speech Services बाट नेपाली प्याक डाउनलोड गर्नुहोस् (Android 13+)।'
+                        : 'Download Google’s Nepali speech pack (Android 13+). It cannot be bundled in the APK.'}
+                </Text>
+                <Pressable
+                  style={[styles.batteryBtn, { marginTop: spacing.md }]}
+                  onPress={() => void installNepaliPack()}
+                  disabled={downloadingNepali}
+                >
+                  {downloadingNepali ? (
+                    <ActivityIndicator color={colors.accent} />
+                  ) : (
+                    <Text style={styles.batteryBtnText}>
+                      {offlineNepali === 'ready'
+                        ? uiLanguage === 'ne'
+                          ? 'नेपाली अफलाइन तयार छ'
+                          : 'Nepali offline is ready'
+                        : uiLanguage === 'ne'
+                          ? 'नेपाली अफलाइन मोडेल डाउनलोड'
+                          : 'Download Nepali offline model'}
+                    </Text>
+                  )}
+                </Pressable>
+              </View>
+            ) : null}
+            {Platform.OS === 'android' && voiceLanguage === 'new' ? (
               <Pressable
                 style={[styles.batteryBtn, { marginTop: spacing.md }]}
                 onPress={() =>
-                  promptOfflineLanguageDownload(voiceLanguage).catch(
-                    () => undefined,
+                  promptOfflineLanguageDownload(voiceLanguage).then((result) =>
+                    Alert.alert(
+                      uiLanguage === 'ne' ? 'अफलाइन आवाज' : 'Offline voice',
+                      result.message,
+                    ),
                   )
                 }
               >
                 <Text style={styles.batteryBtnText}>
-                  Download offline voice model
+                  {uiLanguage === 'ne'
+                    ? 'नेपाल भाषाका लागि नेपाली प्याक डाउनलोड'
+                    : 'Download Nepali pack for Newari fallback'}
                 </Text>
               </Pressable>
             ) : null}
+            <View
+              style={[
+                styles.choice,
+                {
+                  marginTop: spacing.md,
+                  borderTopWidth: StyleSheet.hairlineWidth,
+                  borderTopColor: colors.borderHairline,
+                  paddingTop: spacing.lg,
+                },
+              ]}
+            >
+              <View style={{ flex: 1, paddingRight: spacing.md }}>
+                <Text style={styles.rowTitle}>
+                  {uiLanguage === 'ne'
+                    ? 'मोबाइल डाटामा आवाज'
+                    : 'Voice over mobile data'}
+                </Text>
+                <Text style={styles.rowHint}>
+                  {uiLanguage === 'ne'
+                    ? 'बन्द हुँदा Google STT Wi‑Fi मा मात्र। खोलेपछि मोबाइल डाटा पनि प्रयोग हुन्छ।'
+                    : 'Off: Google STT only on Wi‑Fi. On: also use mobile data for voice.'}
+                </Text>
+              </View>
+              <Switch
+                value={allowVoiceOnMobileData}
+                onValueChange={setAllowVoiceOnMobileData}
+                trackColor={{ true: colors.accent, false: colors.border }}
+              />
+            </View>
           </View>
 
           <Text style={styles.section}>Notification style</Text>

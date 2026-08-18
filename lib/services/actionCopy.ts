@@ -38,7 +38,7 @@ export function formatActionTitle(
 
 export function formatNotificationBody(
   category: Category,
-  notes: string | null,
+  _notes: string | null,
   tier: 'nudge' | 'alert' | 'insist1' | 'insist2',
 ): string {
   if (tier === 'nudge') return 'Coming up soon';
@@ -49,19 +49,11 @@ export function formatNotificationBody(
     if (category === 'call') return 'Still waiting — Call · Done · Snooze';
     return 'Still open — tap Done when finished';
   }
-  if (category === 'medicine') {
-    return notes?.trim() || 'Take your medicine, then tap Done';
-  }
-  if (category === 'buy') {
-    return notes?.trim() || 'Buy this, then tap Done';
-  }
-  if (category === 'doctor') {
-    return notes?.trim() || 'See the doctor, then tap Done';
-  }
-  if (category === 'call') {
-    return 'Action: Call now · Done · Snooze 30m';
-  }
-  return notes?.trim() || 'Tap Done when finished';
+  if (category === 'medicine') return 'Take your medicine, then tap Done';
+  if (category === 'buy') return 'Buy this, then tap Done';
+  if (category === 'doctor') return 'See the doctor, then tap Done';
+  if (category === 'call') return 'Action: Call now · Done · Snooze 30m';
+  return 'Tap Done when finished';
 }
 
 export function formatSpokenAlert(
