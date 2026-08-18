@@ -4,7 +4,8 @@ import { Platform } from 'react-native';
 import { showCallAlert } from 'yaad-native';
 
 import { announceFromNotification } from '@/lib/services/announce';
-import { useSettingsStore } from '@/store/useSettingsStore';
+import { processNotificationResponse } from '@/lib/services/notificationActions';
+import { loadPersistedSettings } from '@/lib/settings/loadSettings';
 import { Category } from '@/types';
 
 export const YAAD_BACKGROUND_NOTIFICATION_TASK = 'YAAD_BACKGROUND_NOTIFICATION';
@@ -20,7 +21,11 @@ TaskManager.defineTask(YAAD_BACKGROUND_NOTIFICATION_TASK, async ({ data, error }
   }
 
   if ('actionIdentifier' in payload) {
-    return Notifications.BackgroundNotificationTaskResult.NoData;
+    await processNotificationResponse(
+      payload as unknown as Notifications.NotificationResponse,
+      { allowNavigation: false },
+    );
+    return Notifications.BackgroundNotificationTaskResult.NewData;
   }
 
   let notification: Notifications.Notification | null = null;
@@ -55,7 +60,7 @@ TaskManager.defineTask(YAAD_BACKGROUND_NOTIFICATION_TASK, async ({ data, error }
     return Notifications.BackgroundNotificationTaskResult.NoData;
   }
 
-  const settings = useSettingsStore.getState().getSettings();
+  const settings = await loadPersistedSettings();
 
   if (settings.speakAlerts && ndata.speak !== false) {
     announceFromNotification({

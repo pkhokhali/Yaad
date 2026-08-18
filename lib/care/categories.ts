@@ -13,9 +13,9 @@ export const CATEGORY_LABEL: Record<Category, string> = {
   buy: 'Buy',
   doctor: 'Doctor',
   call: 'Call',
-  general: 'Task',
-  document: 'Task',
-  repeat: 'Task',
+  general: 'Reminder',
+  document: 'Reminder',
+  repeat: 'Reminder',
 };
 
 export function categorySupportsPhoto(category: Category): boolean {

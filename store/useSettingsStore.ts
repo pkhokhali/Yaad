@@ -18,6 +18,7 @@ type SettingsState = AppSettings & {
   setAlertsAfterCount: (count: number) => void;
   setAppearanceTheme: (appearanceTheme: ThemeName) => void;
   setAppearanceScale: (appearanceScale: ScaleMode) => void;
+  setDisplayName: (displayName: string) => void;
   completeOnboarding: (setupFor: 'me' | 'family') => void;
   getSettings: () => AppSettings;
 };
@@ -41,6 +42,7 @@ function snapshot(s: SettingsState): AppSettings {
     appearanceScale: s.appearanceScale ?? DEFAULT_SETTINGS.appearanceScale,
     onboardingComplete: Boolean(s.onboardingComplete),
     setupFor: s.setupFor ?? null,
+    displayName: s.displayName?.trim() ?? '',
   };
 }
 
@@ -64,6 +66,7 @@ export const useSettingsStore = create<SettingsState>()(
         set({ alertsAfterCount: clampAlertCount(count) }),
       setAppearanceTheme: (appearanceTheme) => set({ appearanceTheme }),
       setAppearanceScale: (appearanceScale) => set({ appearanceScale }),
+      setDisplayName: (displayName) => set({ displayName: displayName.trim() }),
       completeOnboarding: (setupFor) =>
         set({
           onboardingComplete: true,
@@ -115,6 +118,9 @@ export const useSettingsStore = create<SettingsState>()(
         if (state.onboardingComplete == null) {
           state.onboardingComplete = false;
         }
+        if (state.displayName == null) {
+          state.displayName = DEFAULT_SETTINGS.displayName;
+        }
         if (state.quietHoursVersion !== 2) {
           if (state.quietHoursStart <= 23) {
             state.quietHoursStart *= 60;
@@ -140,6 +146,7 @@ export const useSettingsStore = create<SettingsState>()(
         appearanceScale: state.appearanceScale,
         onboardingComplete: state.onboardingComplete,
         setupFor: state.setupFor,
+        displayName: state.displayName,
       }),
     },
   ),

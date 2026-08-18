@@ -3,6 +3,7 @@ import { Tabs } from 'expo-router';
 import { StyleSheet } from 'react-native';
 
 import { useCopy } from '@/lib/i18n/copy';
+import { openGuidedVoiceCapture } from '@/lib/services/voiceCapture';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useScale } from '@/providers/ScaleProvider';
 import { useTheme } from '@/providers/ThemeProvider';
@@ -17,7 +18,7 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.accent,
+        tabBarActiveTintColor: colors.navActive,
         tabBarInactiveTintColor: colors.textSubtle,
         tabBarStyle: {
           backgroundColor: colors.surface,
@@ -29,7 +30,7 @@ export default function TabLayout() {
         },
         tabBarLabelStyle: {
           fontSize: scale.meta - 2,
-          fontWeight: '500',
+          fontWeight: '600',
         },
         tabBarIconStyle: isCompact ? { marginTop: 0 } : undefined,
       }}
@@ -37,27 +38,61 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: copy.tabs.today,
+          title: copy.tabs.dashboard,
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="today-outline" size={size} color={color} />
+            <Ionicons name="home-outline" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="later"
+        name="todo"
         options={{
-          title: copy.tabs.later,
+          title: copy.tabs.todo,
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="calendar-outline" size={size} color={color} />
+            <Ionicons name="checkmark-circle-outline" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="me"
+        name="voice"
         options={{
-          title: copy.tabs.me,
+          title: copy.tabs.voice,
+          tabBarActiveTintColor: colors.accent,
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
+            <Ionicons name="mic" size={size + 2} color={color} />
+          ),
+        }}
+        listeners={{
+          tabPress: (e) => {
+            e.preventDefault();
+            openGuidedVoiceCapture();
+          },
+        }}
+      />
+      <Tabs.Screen
+        name="reminders"
+        options={{
+          title: copy.tabs.reminders,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="notifications-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="expense"
+        options={{
+          title: copy.tabs.expense,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="card-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: copy.tabs.settings,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="settings-outline" size={size} color={color} />
           ),
         }}
       />

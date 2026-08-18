@@ -15,13 +15,17 @@ import {
   TranscriptAccumulator,
 } from '@/lib/services/speechRecognition';
 import { submitVoiceCapture } from '@/lib/services/voiceCapture';
+import { VoiceAddKind } from '@/lib/services/voiceGuide';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
 type Options = {
   autoStart?: boolean;
   handsFree?: boolean;
+  captureKind?: VoiceAddKind;
   onSaved?: (title: string) => void;
   onError?: (message: string) => void;
+  /** Return handled to skip default save flow. */
+  onTranscript?: (text: string) => Promise<'handled' | 'default'>;
 };
 
 export function useVoiceCapture(options: Options = {}) {
@@ -51,7 +55,12 @@ export function useVoiceCapture(options: Options = {}) {
       submittingRef.current = true;
       setBusy(true);
       try {
-        const result = await submitVoiceCapture(text, getSettings());
+        if (optionsRef.current.onTranscript) {
+          const action = await optionsRef.current.onTranscript(text);
+          if (action === 'handled') return;
+        }
+        const kind = optionsRef.current.captureKind ?? 'reminder';
+        const result = await submitVoiceCapture(text, getSettings(), kind);
         if (result.status === 'saved') {
           optionsRef.current.onSaved?.(result.title);
         }

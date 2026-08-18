@@ -2,12 +2,18 @@ import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
 import { AppState, Linking, Platform } from 'react-native';
 
-import { getReminderById } from '@/lib/db/reminders';
+import { getReminderById, markDone, snoozeReminder } from '@/lib/db/reminders';
 import { announceFromNotification } from '@/lib/services/announce';
+import {
+  cancelAllForReminder,
+  completeWithRepeat,
+  maybeAdaptUrgency,
+  refreshEveningSweep,
+  scheduleReminderNotifications,
+} from '@/lib/services/notifications';
+import { loadPersistedSettings } from '@/lib/settings/loadSettings';
 import { extractPhone, parseVoiceReply } from '@/lib/services/voiceReply';
-import { useReminderStore } from '@/store/useReminderStore';
-import { useSettingsStore } from '@/store/useSettingsStore';
-import { Category } from '@/types';
+import { AppSettings, Category } from '@/types';
 
 let lastHandledKey = '';
 let lastSpokenKey = '';
@@ -20,13 +26,14 @@ function responseKey(response: Notifications.NotificationResponse): string {
   ].join('|');
 }
 
-function speakNotificationPayload(
+async function speakNotificationPayload(
   data: Record<string, unknown> | undefined,
   title?: string | null,
   body?: string | null,
-): void {
-  const settings = useSettingsStore.getState().getSettings();
-  if (!settings.speakAlerts) return;
+  settings?: AppSettings,
+): Promise<void> {
+  const appSettings = settings ?? (await loadPersistedSettings());
+  if (!appSettings.speakAlerts) return;
 
   const key = `${data?.reminderId ?? ''}|${data?.tier ?? ''}|${title ?? ''}`;
   if (key && key === lastSpokenKey) return;
@@ -38,16 +45,16 @@ function speakNotificationPayload(
     spoken: typeof data?.spoken === 'string' ? data.spoken : null,
     category: (data?.category as Category) || 'general',
     tier:
-      typeof data?.tier === 'string' && String(data.tier).startsWith('pre')
+      typeof data?.tier === 'string' && String(data?.tier).startsWith('pre')
         ? 'nudge'
         : (data?.tier as 'nudge' | 'alert' | 'insist1' | 'insist2') || 'alert',
-    language: settings.voiceLanguage,
+    language: appSettings.voiceLanguage,
   });
 }
 
 async function runCall(reminderId: string): Promise<void> {
   const reminder = await getReminderById(reminderId);
-  const settings = useSettingsStore.getState().getSettings();
+  const settings = await loadPersistedSettings();
   if (settings.speakAlerts && reminder) {
     announceFromNotification({
       title: reminder.title,
@@ -65,7 +72,6 @@ async function runCall(reminderId: string): Promise<void> {
     return;
   }
 
-  // Always open the dialer for call actions — with number if we have one.
   try {
     await Linking.openURL(phone ? `tel:${phone}` : 'tel:');
   } catch {
@@ -84,17 +90,47 @@ export function speakForReceivedNotification(
     | Record<string, unknown>
     | undefined;
   if (data?.kind === 'sweep') return;
-  speakNotificationPayload(
+  void speakNotificationPayload(
     data,
     notification.request.content.title,
     notification.request.content.body,
   );
 }
 
-/** Handle lock-screen Done / Snooze / Call / Voice without opening the list. */
-export async function handleNotificationResponse(
-  response: Notifications.NotificationResponse,
+async function completeReminderHeadless(
+  reminderId: string,
+  settings: AppSettings,
 ): Promise<void> {
+  const reminder = await getReminderById(reminderId);
+  if (!reminder) return;
+  if (reminder.repeat_rule) {
+    await completeWithRepeat(reminder, settings);
+  } else {
+    await markDone(reminderId);
+    await cancelAllForReminder(reminderId);
+    await refreshEveningSweep(settings);
+  }
+}
+
+async function snoozeReminderHeadless(
+  reminderId: string,
+  minutes: number,
+  settings: AppSettings,
+): Promise<void> {
+  await snoozeReminder(reminderId, minutes);
+  await maybeAdaptUrgency(reminderId);
+  const reminder = await getReminderById(reminderId);
+  if (reminder) {
+    await scheduleReminderNotifications(reminder, settings);
+  }
+}
+
+/** Works in foreground and headless background (no router required for Done/Snooze). */
+export async function processNotificationResponse(
+  response: Notifications.NotificationResponse,
+  options?: { allowNavigation?: boolean },
+): Promise<void> {
+  const allowNavigation = options?.allowNavigation !== false;
   const key = responseKey(response);
   if (key === lastHandledKey) return;
   lastHandledKey = key;
@@ -114,16 +150,19 @@ export async function handleNotificationResponse(
     action === Notifications.DEFAULT_ACTION_IDENTIFIER ||
     action === 'expo.modules.notifications.actions.DEFAULT';
 
-  // Speak when the user opens / acts on the alert (covers background fire).
+  const settings = await loadPersistedSettings();
+
   if (data?.kind !== 'sweep') {
-    speakNotificationPayload(
+    await speakNotificationPayload(
       data as Record<string, unknown> | undefined,
       response.notification.request.content.title,
       response.notification.request.content.body,
+      settings,
     );
   }
 
   if (isDefault) {
+    if (!allowNavigation) return;
     if (data?.kind === 'sweep') {
       router.push('/');
       return;
@@ -141,11 +180,9 @@ export async function handleNotificationResponse(
 
   if (!reminderId) return;
 
-  const settings = useSettingsStore.getState().getSettings();
-  const store = useReminderStore.getState();
-
   let intent = action as string;
   if (action === 'voice') {
+    if (!allowNavigation) return;
     const parsed = parseVoiceReply(response.userText ?? '');
     if (!parsed) {
       router.push(`/reminder/${reminderId}`);
@@ -155,40 +192,50 @@ export async function handleNotificationResponse(
   }
 
   if (intent === 'done') {
-    await store.completeReminder(reminderId, settings);
+    await completeReminderHeadless(reminderId, settings);
     await Notifications.dismissNotificationAsync(
+      response.notification.request.identifier,
+    ).catch(() => undefined);
+    await Notifications.cancelScheduledNotificationAsync(
       response.notification.request.identifier,
     ).catch(() => undefined);
     return;
   }
 
   if (intent === 'snooze') {
-    await store.snooze(reminderId, 30, settings);
+    await snoozeReminderHeadless(reminderId, 30, settings);
     await Notifications.dismissNotificationAsync(
       response.notification.request.identifier,
     ).catch(() => undefined);
     return;
   }
 
-  if (intent === 'call') {
+  if (intent === 'call' && allowNavigation) {
     await runCall(reminderId);
   }
+}
+
+/** Handle lock-screen Done / Snooze / Call without opening the list. */
+export async function handleNotificationResponse(
+  response: Notifications.NotificationResponse,
+): Promise<void> {
+  await processNotificationResponse(response, { allowNavigation: true });
 }
 
 /** If app returns to foreground right as something is due, speak once. */
 export function attachDueSpeechOnForeground(): () => void {
   const sub = AppState.addEventListener('change', async (state) => {
     if (state !== 'active') return;
-    const settings = useSettingsStore.getState().getSettings();
+    const settings = await loadPersistedSettings();
     if (!settings.speakAlerts) return;
 
+    const { listReminders } = await import('@/lib/db/reminders');
+    const all = await listReminders();
     const now = Date.now();
-    const due = useReminderStore
-      .getState()
-      .reminders.find(
-        (r) =>
-          !r.is_done && r.due_at <= now && r.due_at >= now - 2 * 60 * 1000,
-      );
+    const due = all.find(
+      (r) =>
+        !r.is_done && r.due_at <= now && r.due_at >= now - 2 * 60 * 1000,
+    );
     if (!due) return;
 
     const key = `fg|${due.id}|${due.due_at}`;

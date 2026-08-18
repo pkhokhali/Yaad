@@ -15,6 +15,8 @@ export type ThemeColors = {
   accentSoft: string;
   accentGlow: string;
   accentBlue: string;
+  navActive: string;
+  primaryButton: string;
   danger: string;
   success: string;
   streak: string;
@@ -34,31 +36,35 @@ export const darkColors: ThemeColors = {
   accent: '#FFB300',
   accentSoft: 'rgba(255, 179, 0, 0.14)',
   accentGlow: 'rgba(255, 179, 0, 0.35)',
-  accentBlue: '#5EB8FF',
+  accentBlue: '#2563EB',
+  navActive: '#2563EB',
+  primaryButton: '#6D28D9',
   danger: '#F87171',
   success: '#34D399',
   streak: '#FFB300',
   overlay: 'rgba(0, 0, 0, 0.62)',
 };
 
-/** Normal = light theme. Same accent and category tints. */
+/** Normal = FieldOps-style light dashboard. */
 export const lightColors: ThemeColors = {
-  background: '#F6F3EC',
+  background: '#F4F6FB',
   surface: '#FFFFFF',
-  surfaceElevated: '#F3EEE4',
-  border: '#E2DCCF',
-  borderHairline: '#EBE6DB',
-  text: '#1A1C21',
-  textMuted: '#5C616B',
-  textSubtle: '#8A8F99',
+  surfaceElevated: '#EEF2FF',
+  border: '#E2E8F0',
+  borderHairline: '#E8ECF4',
+  text: '#0F172A',
+  textMuted: '#64748B',
+  textSubtle: '#94A3B8',
   accent: '#FFB300',
-  accentSoft: 'rgba(255, 179, 0, 0.18)',
-  accentGlow: 'rgba(255, 179, 0, 0.42)',
-  accentBlue: '#5EB8FF',
-  danger: '#F87171',
-  success: '#34D399',
+  accentSoft: 'rgba(255, 179, 0, 0.14)',
+  accentGlow: 'rgba(255, 179, 0, 0.28)',
+  accentBlue: '#2563EB',
+  navActive: '#2563EB',
+  primaryButton: '#6D28D9',
+  danger: '#EF4444',
+  success: '#16A34A',
   streak: '#FFB300',
-  overlay: 'rgba(0, 0, 0, 0.45)',
+  overlay: 'rgba(15, 23, 42, 0.45)',
 };
 
 /** @deprecated Use useTheme().colors — kept as dark default for non-UI modules. */

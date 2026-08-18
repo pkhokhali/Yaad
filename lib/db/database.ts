@@ -27,6 +27,19 @@ CREATE TABLE IF NOT EXISTS meta (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS money_entries (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,
+  title TEXT NOT NULL,
+  amount REAL NOT NULL,
+  ledger TEXT NOT NULL DEFAULT 'personal',
+  person TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',
+  entry_date INTEGER NOT NULL,
+  notes TEXT,
+  created_at INTEGER NOT NULL
+);
 `;
 
 export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {

@@ -40,15 +40,17 @@ export default function AddReminderScreen() {
   const { scale } = useScale();
   const copy = useCopy();
   const router = useRouter();
-  const params = useLocalSearchParams<{ draft?: string; fromVoice?: string }>();
+  const params = useLocalSearchParams<{ draft?: string; fromVoice?: string; mode?: string }>();
   const addReminder = useReminderStore((s) => s.addReminder);
   const getSettings = useSettingsStore((s) => s.getSettings);
 
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
   const [dueAt, setDueAt] = useState(new Date(Date.now() + 60 * 60 * 1000));
-  const [category, setCategory] = useState<Category>('general');
-  const [everyDay, setEveryDay] = useState(false);
+  const [category, setCategory] = useState<Category>(
+    params.mode === 'reminder' ? 'medicine' : 'general',
+  );
+  const [everyDay, setEveryDay] = useState(params.mode === 'reminder');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [items, setItems] = useState<ChecklistItem[] | undefined>();
   const [parsing, setParsing] = useState(true);
@@ -145,6 +147,13 @@ export default function AddReminderScreen() {
       ) : (
         <View style={styles.card}>
           <Text style={styles.label}>What</Text>
+          <Text style={[styles.label, { marginTop: 0, textTransform: 'none', fontSize: 13, color: colors.textMuted }]}>
+            {params.mode === 'todo'
+              ? 'Personal to-do'
+              : params.mode === 'reminder'
+                ? 'Scheduled reminder with alerts'
+                : 'Reminder'}
+          </Text>
           <TextInput
             style={[styles.titleInput, { fontSize: scale.heroTitle }]}
             value={title}
@@ -191,6 +200,8 @@ export default function AddReminderScreen() {
             </Text>
           </Pressable>
 
+          {params.mode !== 'todo' ? (
+            <>
           <Text style={[styles.label, { marginTop: spacing.lg }]}>
             What kind
           </Text>
@@ -229,6 +240,8 @@ export default function AddReminderScreen() {
               onChange={setPhotoUri}
               prompt="Picture of the medicine"
             />
+          ) : null}
+            </>
           ) : null}
 
           <Text style={[styles.label, { marginTop: spacing.lg }]}>Notes</Text>

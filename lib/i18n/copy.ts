@@ -1,7 +1,14 @@
 import { useSettingsStore } from '@/store/useSettingsStore';
 
 export type Copy = {
-  tabs: { today: string; later: string; me: string };
+  tabs: {
+    dashboard: string;
+    todo: string;
+    voice: string;
+    reminders: string;
+    expense: string;
+    settings: string;
+  };
   done: string;
   emptyTodayTitle: string;
   emptyTodayBody: string;
@@ -36,22 +43,29 @@ export type Copy = {
 };
 
 const EN: Copy = {
-  tabs: { today: 'Today', later: 'Later', me: 'Me' },
+  tabs: {
+    dashboard: 'Dashboard',
+    todo: 'To-Do',
+    voice: 'Yaad Voice',
+    reminders: 'Reminders',
+    expense: 'Expense',
+    settings: 'Settings',
+  },
   done: 'Done',
   emptyTodayTitle: 'Nothing due today',
   emptyTodayBody:
-    'Add a daily task, medicine, or a one-time reminder. Type below, or tap the mic, speak, then tap again.',
+    'Add a to-do, medicine, or a one-time reminder. Type below, or tap the mic, speak, then tap again.',
   emptyLaterTitle: 'Nothing later',
   emptyLaterBody: 'Reminders after today show up here.',
   moreToday: (n) => (n === 1 ? '1 more today' : `${n} more today`),
   view: 'View',
-  dailyTasks: 'Daily tasks',
+  dailyTasks: 'Daily reminders',
   once: 'Once',
   overdue: 'Overdue',
   standard: 'Standard',
   comfort: 'Comfort',
   whoTitle: "Who's this for?",
-  whoSubtitle: 'This only changes text size. You can switch anytime in Me.',
+  whoSubtitle: 'This only changes text size. You can switch anytime in Settings.',
   whoMe: 'Me',
   whoMeHint: 'Standard size — more on the screen',
   whoFamily: 'Setting up for a parent or family member',
@@ -66,14 +80,21 @@ const EN: Copy = {
   tapMicAgain: 'Tap the mic again when you’re done',
   tapToSpeak: 'Tap the mic, then speak',
   saveReminder: 'Save reminder',
-  addTask: 'Add a task',
+  addTask: 'Add a reminder',
   laterToday: 'Later today',
   checklistMore: (n) => `+${n} more`,
   itemsDone: (done, total) => `${done}/${total} done`,
 };
 
 const NE: Copy = {
-  tabs: { today: 'आज', later: 'पछि', me: 'म' },
+  tabs: {
+    dashboard: 'ड्यासबोर्ड',
+    todo: 'टु-डु',
+    voice: 'याद आवाज',
+    reminders: 'सम्झना',
+    expense: 'खर्च',
+    settings: 'सेटिङ',
+  },
   done: 'भयो',
   emptyTodayTitle: 'आज केही बाँकी छैन',
   emptyTodayBody:
@@ -88,7 +109,7 @@ const NE: Copy = {
   standard: 'सामान्य',
   comfort: 'आरामदायी',
   whoTitle: 'यो कसका लागि हो?',
-  whoSubtitle: 'यसले अक्षरको साइज मात्र बदल्छ। पछि मे मा फेर्न सकिन्छ।',
+  whoSubtitle: 'यसले अक्षरको साइज मात्र बदल्छ। पछि सेटिङमा फेर्न सकिन्छ।',
   whoMe: 'मलाई',
   whoMeHint: 'सामान्य साइज — स्क्रिनमा बढी देखिन्छ',
   whoFamily: 'अभिभावक वा परिवारका लागि सेट गर्दै',

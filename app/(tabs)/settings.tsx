@@ -9,6 +9,7 @@ import {
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -26,7 +27,7 @@ import {
 import { useCopy } from '@/lib/i18n/copy';
 import { promptOfflineLanguageDownload } from '@/lib/services/speechRecognition';
 import { rescheduleOpenReminders } from '@/lib/services/notifications';
-import { openVoiceCapture } from '@/lib/services/voiceCapture';
+import { openGuidedVoiceCapture } from '@/lib/services/voiceCapture';
 import { VOICE_LANGUAGE_OPTIONS } from '@/lib/services/voiceLanguages';
 import { useScale } from '@/providers/ScaleProvider';
 import { useTheme } from '@/providers/ThemeProvider';
@@ -197,12 +198,14 @@ function Segmented<T extends string>({
   );
 }
 
-export default function MeScreen() {
+export default function SettingsScreen() {
   const { gutter } = useResponsive();
   const { colors, theme, setTheme } = useTheme();
   const { scale, mode, setMode } = useScale();
   const copy = useCopy();
   const streak = useYaadItemStore((s) => s.streak);
+  const displayName = useSettingsStore((s) => s.displayName ?? '');
+  const setDisplayName = useSettingsStore((s) => s.setDisplayName);
 
   const quietHoursEnabled = useSettingsStore((s) => s.quietHoursEnabled);
   const quietHoursStart = useSettingsStore((s) => s.quietHoursStart);
@@ -239,7 +242,7 @@ export default function MeScreen() {
             <MemoryNodeIcon size={36} />
             <View style={{ flex: 1 }}>
               <Text style={[styles.brand, { fontSize: scale.heroTitle + 4 }]}>
-                {copy.tabs.me}
+                {copy.tabs.settings}
               </Text>
               <Text style={styles.lead}>{brand.motto}</Text>
             </View>
@@ -253,6 +256,27 @@ export default function MeScreen() {
               {streak} day streak · saved on this device only
             </Text>
           ) : null}
+
+          <Text style={styles.section}>Profile</Text>
+          <View style={styles.card}>
+            <Text style={styles.rowTitle}>Your name</Text>
+            <Text style={[styles.rowHint, { marginBottom: spacing.md }]}>
+              Shown on the dashboard greeting.
+            </Text>
+            <TextInput
+              style={{
+                fontSize: 16,
+                color: colors.text,
+                paddingVertical: spacing.sm,
+                borderBottomWidth: StyleSheet.hairlineWidth,
+                borderBottomColor: colors.borderHairline,
+              }}
+              value={displayName}
+              onChangeText={setDisplayName}
+              placeholder="Your name"
+              placeholderTextColor={colors.textSubtle}
+            />
+          </View>
 
           <Text style={styles.section}>Appearance</Text>
           <View style={styles.card}>
@@ -415,7 +439,7 @@ export default function MeScreen() {
             </View>
             <Pressable
               style={styles.batteryBtn}
-              onPress={() => openVoiceCapture()}
+              onPress={() => openGuidedVoiceCapture()}
             >
               <Text style={styles.batteryBtnText}>Try voice capture now</Text>
             </Pressable>

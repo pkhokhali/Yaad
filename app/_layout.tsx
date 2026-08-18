@@ -20,6 +20,7 @@ import { ensureNotificationPermissions } from '@/lib/services/notifications';
 import { registerBackgroundNotificationTask } from '@/lib/tasks/backgroundNotificationTask';
 import { ScaleProvider } from '@/providers/ScaleProvider';
 import { ThemeProvider, useTheme } from '@/providers/ThemeProvider';
+import { useMoneyStore } from '@/store/useMoneyStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useYaadItemStore } from '@/store/useYaadItemStore';
 
@@ -89,6 +90,7 @@ function RootLayoutInner() {
         await initializeAds();
         preloadInterstitial();
         await useYaadItemStore.getState().bootstrap();
+        await useMoneyStore.getState().bootstrap();
       } finally {
         setReady(true);
       }
@@ -161,6 +163,13 @@ function RootLayoutInner() {
           }}
         />
         <Stack.Screen name="reminder/[id]" options={{ title: 'Reminder' }} />
+        <Stack.Screen
+          name="money/add"
+          options={{
+            presentation: 'modal',
+            title: 'Add entry',
+          }}
+        />
       </Stack>
     </>
   );

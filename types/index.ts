@@ -62,6 +62,7 @@ export interface AppSettings {
   appearanceScale: ScaleMode;
   onboardingComplete: boolean;
   setupFor: SetupFor | null;
+  displayName: string;
 }
 
 export interface ParsedCapture {
@@ -84,10 +85,11 @@ export const DEFAULT_SETTINGS: AppSettings = {
   speakAlerts: true,
   alertsBeforeCount: 0,
   alertsAfterCount: 1,
-  appearanceTheme: 'dark',
+  appearanceTheme: 'normal',
   appearanceScale: 'standard',
   onboardingComplete: false,
   setupFor: null,
+  displayName: '',
 };
 
 export function minutesToClockLabel(mins: number): string {
