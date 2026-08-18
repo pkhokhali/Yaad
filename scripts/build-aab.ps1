@@ -91,6 +91,10 @@ if (-not (Test-Path $AndroidDir)) {
 
 Ensure-UploadKeystore
 
+Write-Host 'Bumping Android version for Play Store...'
+& (Join-Path $Root 'scripts\bump-android-version.ps1')
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
 New-Item -ItemType Directory -Force -Path $GradleHome | Out-Null
 $escapedSdk = ($SdkDir -replace '\\', '\\')
 Set-Content -Path $LocalProps -Value "sdk.dir=$escapedSdk`n" -Encoding ASCII

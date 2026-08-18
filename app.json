@@ -2,7 +2,7 @@
   "expo": {
     "name": "Yaad",
     "slug": "yaad-memory",
-    "version": "1.0.1",
+    "version": "1.0.4",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "yaad",
@@ -18,7 +18,7 @@
     },
     "android": {
       "package": "com.pkhokhali.yaad",
-      "versionCode": 2,
+      "versionCode": 5,
       "adaptiveIcon": {
         "backgroundColor": "#12141A",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -111,7 +111,7 @@
           "inbox": "./assets/store/screenshot-04-inbox.png"
         },
         "shortDescription": "Voice-first reminders. 100% on-device.",
-        "fullDescription": "Don't remember. Just Yaad. Voice-first reminders stored only on your phone — no cloud, no accounts. Set up medicine for a parent when you visit."
+        "fullDescription": "Don't remember. Just Yaad. Voice-first reminders stored only on your phone â€” no cloud, no accounts. Set up medicine for a parent when you visit."
       }
     }
   },
