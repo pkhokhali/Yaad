@@ -1,6 +1,7 @@
 /**
- * AdMob units. Android production IDs are live.
- * iOS still uses Google test app ID until an iOS AdMob app is created.
+ * Yaad AdMob units (production).
+ * Banner: ca-app-pub-5729640735270473/1712208890
+ * Interstitial: ca-app-pub-5729640735270473/4781175036
  */
 export const USE_TEST_ADS = false;
 
@@ -8,7 +9,9 @@ export const PRODUCTION_ANDROID_APP_ID = 'ca-app-pub-5729640735270473~7390242681
 export const PRODUCTION_IOS_APP_ID = 'ca-app-pub-3940256099942544~1458002511';
 
 export const PRODUCTION_UNITS = {
+  /** Yaad Banner */
   banner: 'ca-app-pub-5729640735270473/1712208890',
+  /** Yaad Interstitial */
   interstitial: 'ca-app-pub-5729640735270473/4781175036',
 };
 

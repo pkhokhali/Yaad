@@ -1,7 +1,7 @@
 {
   "name": "yaad",
   "main": "index.js",
-  "version": "1.0.5",
+  "version": "1.0.7",
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -41,6 +41,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "eas-cli": "^21.8.0",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -51,6 +52,10 @@
     "prebuild:android": "expo prebuild --platform android",
     "build:apk": "powershell -ExecutionPolicy Bypass -File ./scripts/build-apk.ps1",
     "build:aab": "powershell -ExecutionPolicy Bypass -File ./scripts/build-aab.ps1",
+    "credentials:sync": "powershell -ExecutionPolicy Bypass -File ./scripts/sync-eas-credentials.ps1",
+    "credentials:upload": "npm run credentials:sync && node ./scripts/upload-eas-keystore.cjs",
+    "credentials:eas": "npm run credentials:upload",
+    "build:eas": "npx eas-cli build --platform android --profile production --non-interactive",
     "clean:build": "powershell -ExecutionPolicy Bypass -File ./scripts/clean-build-caches.ps1",
     "build:apk:unix": "cd android && ./gradlew assembleRelease"
   },
