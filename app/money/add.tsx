@@ -61,9 +61,10 @@ export default function AddMoneyScreen() {
         amount: value,
         ledger,
         person: kind === 'lend' ? person.trim() || null : null,
+        status: 'settled',
         notes: notes.trim() || null,
       });
-      router.back();
+      router.replace('/(tabs)/expense');
     } finally {
       setSaving(false);
     }

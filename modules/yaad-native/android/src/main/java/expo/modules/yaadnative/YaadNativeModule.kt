@@ -58,6 +58,46 @@ class YaadNativeModule : Module() {
       }
       context.startActivity(intent)
     }
+
+    AsyncFunction("openOfflineSpeechSettings") {
+      val context = appContext.reactContext?.applicationContext
+        ?: throw IllegalStateException("No application context")
+      openOfflineSpeechSettings(context)
+    }
+
+    AsyncFunction("updateHomeWidget") { payload: Map<String, Any?> ->
+      val context = appContext.reactContext?.applicationContext
+        ?: throw IllegalStateException("No application context")
+      val prefs = context.getSharedPreferences(YaadWidgetProvider.PREFS, Context.MODE_PRIVATE)
+      prefs.edit()
+        .putString("brand", payload["brand"] as? String ?: "Yaad")
+        .putString("nextTitle", payload["nextTitle"] as? String ?: "All clear")
+        .putString("nextTime", payload["nextTime"] as? String ?: "Nothing scheduled")
+        .putString("summaryLine", payload["summaryLine"] as? String ?: "Tap to open Yaad")
+        .putInt("overdueCount", (payload["overdueCount"] as? Number)?.toInt() ?: 0)
+        .putInt("todayCount", (payload["todayCount"] as? Number)?.toInt() ?: 0)
+        .putInt("streak", (payload["streak"] as? Number)?.toInt() ?: 0)
+        .apply()
+      YaadWidgetProvider.updateAll(context)
+      YaadQuickWidgetProvider.updateAll(context)
+    }
+  }
+
+  private fun openOfflineSpeechSettings(context: Context) {
+    val candidates = listOf(
+      Intent("com.google.android.googlequicksearchbox.action.VOICE_INPUT_SETTINGS"),
+      Intent(Settings.ACTION_VOICE_INPUT_SETTINGS),
+      Intent(Settings.ACTION_INPUT_METHOD_SETTINGS),
+      Intent(Settings.ACTION_SETTINGS),
+    )
+    for (intent in candidates) {
+      intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+      if (intent.resolveActivity(context.packageManager) != null) {
+        context.startActivity(intent)
+        return
+      }
+    }
+    throw IllegalStateException("Could not open speech settings on this device")
   }
 
   private fun ensureChannelWithSound(context: Context, channelId: String, soundUri: Uri) {

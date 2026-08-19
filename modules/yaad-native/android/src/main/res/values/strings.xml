@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="yaad_widget_description">Next reminder and today\'s summary from Yaad.</string>
+  <string name="yaad_quick_widget_description">Quick voice reminder capture.</string>
+</resources>

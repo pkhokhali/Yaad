@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { AppState, Linking, Platform } from 'react-native';
 
 import { getReminderById, markDone, snoozeReminder } from '@/lib/db/reminders';
+import { recordNotificationFired } from '@/lib/db/notificationLog';
 import { announceFromNotification } from '@/lib/services/announce';
 import {
   cancelAllForReminder,
@@ -109,6 +110,13 @@ export function speakForReceivedNotification(
     | Record<string, unknown>
     | undefined;
   if (data?.kind === 'sweep') return;
+
+  const reminderId = typeof data?.reminderId === 'string' ? data.reminderId : null;
+  const tier = typeof data?.tier === 'string' ? data.tier : 'alert';
+  if (reminderId) {
+    void recordNotificationFired(reminderId, tier);
+  }
+
   void speakNotificationPayload(
     data,
     notification.request.content.title,

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -46,6 +46,7 @@ export default function VoiceCaptureScreen() {
   const [handlingDraft, setHandlingDraft] = useState(false);
   const [guidedPhase, setGuidedPhase] = useState<GuidedPhase>('pick');
   const [selectedKind, setSelectedKind] = useState<VoiceAddKind | null>(null);
+  const selectedKindRef = useRef<VoiceAddKind | null>(null);
   const [screenHint, setScreenHint] = useState<string | null>(null);
   const styles = useMemo(() => makeCaptureStyles(colors), [colors]);
 
@@ -55,23 +56,28 @@ export default function VoiceCaptureScreen() {
   const orb = Math.min(s(112), Math.round(height * (isLandscape ? 0.28 : 0.18)));
 
   const handleSaved = useCallback(
-    (title: string) => {
+    (title: string, kind: VoiceAddKind) => {
       setStatus(`Saved · ${title}`);
-      setTimeout(() => router.back(), 900);
+      setTimeout(() => {
+        if (kind === 'expense') router.replace('/(tabs)/expense');
+        else if (kind === 'todo') router.replace('/(tabs)/todo');
+        else router.replace('/(tabs)/reminders');
+      }, 900);
     },
     [router],
   );
 
   const onGuidedTranscript = useCallback(
     async (text: string): Promise<'handled' | 'default'> => {
-      if (!isGuided || !selectedKind) return 'default';
-      const result = await submitVoiceCapture(text, getSettings(), selectedKind);
+      const kind = selectedKindRef.current;
+      if (!isGuided || !kind) return 'default';
+      const result = await submitVoiceCapture(text, getSettings(), kind);
       if (result.status === 'saved') {
-        handleSaved(result.title);
+        handleSaved(result.title, result.kind);
       }
       return 'handled';
     },
-    [getSettings, handleSaved, isGuided, selectedKind],
+    [getSettings, handleSaved, isGuided],
   );
 
   const {
@@ -85,7 +91,7 @@ export default function VoiceCaptureScreen() {
     langOption,
   } = useVoiceCapture({
     autoStart: autoListen && !draft,
-    captureKind: selectedKind ?? 'reminder',
+    captureKind: selectedKindRef.current ?? selectedKind ?? 'reminder',
     onSaved: handleSaved,
     onError: (message) => setStatus(message),
     onTranscript: isGuided ? onGuidedTranscript : undefined,
@@ -93,6 +99,7 @@ export default function VoiceCaptureScreen() {
 
   const chooseKind = useCallback(
     (kind: VoiceAddKind) => {
+      selectedKindRef.current = kind;
       setSelectedKind(kind);
       setGuidedPhase('capture');
       const next = promptCapture(kind, uiLanguage === 'ne' ? 'ne' : 'en');
@@ -109,7 +116,7 @@ export default function VoiceCaptureScreen() {
     (async () => {
       const result = await submitVoiceCapture(draft, getSettings());
       if (result.status === 'saved') {
-        handleSaved(result.title);
+        handleSaved(result.title, result.kind);
       }
     })();
   }, [draft, getSettings, handleSaved, handlingDraft]);

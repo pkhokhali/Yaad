@@ -265,7 +265,7 @@ async function scheduleOne(
   });
 
   if (tier === 'nudge' || tier === 'alert' || tier.startsWith('pre')) {
-    await logNotification(reminder.id, isNudge ? 'nudge' : 'alert', when);
+    // Alert history is written when notifications fire (notificationActions).
   }
 }
 

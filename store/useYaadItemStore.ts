@@ -26,6 +26,7 @@ import {
   scheduleReminderNotifications,
 } from '@/lib/services/notifications';
 import { getStreak, recordActivity } from '@/lib/services/streak';
+import { syncHomeWidget } from '@/lib/services/homeWidget';
 import { deriveMissedStatus, filterByBucket } from '@/lib/utils/priority';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import {
@@ -114,6 +115,7 @@ export const useYaadItemStore = create<YaadItemState>((set, get) => ({
         bootstrapping: false,
         ready: true,
       });
+      await syncHomeWidget(allReminders);
       await rescheduleOpenReminders(
         useSettingsStore.getState().getSettings(),
       ).catch(() => undefined);
@@ -132,6 +134,7 @@ export const useYaadItemStore = create<YaadItemState>((set, get) => ({
       ]);
       const synced = syncFromReminders(allReminders);
       set({ ...synced, streak });
+      await syncHomeWidget(allReminders);
     } finally {
       set({ isRefreshing: false });
     }

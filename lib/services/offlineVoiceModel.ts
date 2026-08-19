@@ -1,6 +1,10 @@
 import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
 import { Platform } from 'react-native';
 
+import {
+  formatOfflineDownloadError,
+  isLanguageNotSupportedError,
+} from '@/lib/services/offlineSpeechSteps';
 import { resolveVoiceNetworkAccess } from '@/lib/services/voiceNetwork';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
@@ -143,8 +147,12 @@ export async function downloadNepaliOfflineModel(): Promise<OfflineDownloadResul
               'Google is showing the Nepali language pack. Download it, then return to Yaad.';
       return { ok, status: result.status, message };
     } catch (err) {
-      lastError =
-        err instanceof Error ? err.message : lastError;
+      const raw = err instanceof Error ? err.message : lastError;
+      lastError = formatOfflineDownloadError(
+        raw,
+        useSettingsStore.getState().uiLanguage ?? 'en',
+      );
+      if (isLanguageNotSupportedError(raw)) break;
     }
   }
 

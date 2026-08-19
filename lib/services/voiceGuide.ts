@@ -135,6 +135,26 @@ export function parseVoiceAddKind(raw: string): VoiceAddKind | null {
   return null;
 }
 
+const EXPENSE_TITLE_NOISE =
+  /\b(i|me|my|the|a|an|spent|spend|paid|pay|for|on|of|about|around|approximately|roughly|rs\.?|rupees?|रू|rp|expense|expenses|lend|borrow|add|was|were|is|are|have|has|some|money)\b/giu;
+
+function titleCaseWords(value: string): string {
+  return value.replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function inferExpenseTitle(source: string): string {
+  if (/\btoday\b/iu.test(source)) return 'Today';
+  if (/\byesterday\b/iu.test(source)) return 'Yesterday';
+  if (/\btomorrow\b/iu.test(source)) return 'Tomorrow';
+
+  const category = source.match(
+    /\b(lunch|dinner|breakfast|food|travel|medicine|petrol|fuel|groceries|shopping|rent|bus|taxi|tea|coffee)\b/iu,
+  );
+  if (category) return titleCaseWords(category[1]);
+
+  return 'Expense';
+}
+
 export function parseExpenseVoice(
   raw: string,
 ): { title: string; amount: number; ledger: 'office' | 'personal' } | null {
@@ -142,6 +162,9 @@ export function parseExpenseVoice(
   if (!text) return null;
 
   const amountMatch =
+    text.match(
+      /(?:spent|spend|paid|pay|cost|costs|give|gave|lent|borrowed)\s*(?:rs\.?\s*|rupees?\s*|रू\.?\s*)?(\d+(?:\.\d+)?)/iu,
+    ) ??
     text.match(/(?:rs\.?\s*|रू\.?\s*|rupees?\s*)(\d+(?:\.\d+)?)/iu) ??
     text.match(/(\d+(?:\.\d+)?)\s*(?:rs\.?|rupees?|रू)/iu) ??
     text.match(/\b(\d+(?:\.\d+)?)\b/);
@@ -152,12 +175,16 @@ export function parseExpenseVoice(
   if (!Number.isFinite(amount) || amount <= 0) return null;
 
   let title = text
-    .replace(amountMatch[0], '')
-    .replace(/\b(for|on|office|personal|expense|lend|add|spent)\b/giu, ' ')
+    .replace(amountMatch[0], ' ')
+    .replace(EXPENSE_TITLE_NOISE, ' ')
     .replace(/\s{2,}/g, ' ')
     .trim();
 
-  if (!title) title = 'Expense';
+  if (!title || title.length < 2) {
+    title = inferExpenseTitle(text);
+  } else {
+    title = titleCaseWords(title);
+  }
 
   const ledger = /\boffice\b/iu.test(text) ? 'office' : 'personal';
 

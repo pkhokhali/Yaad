@@ -50,8 +50,8 @@ export function AppHeader({ subtitle = 'Local-first reminders' }: Props) {
 
       <Pressable
         style={[styles.iconBtn, { backgroundColor: colors.surface, borderColor: colors.borderHairline }]}
-        onPress={() => router.push('/(tabs)/reminders')}
-        accessibilityLabel="View overdue reminders"
+        onPress={() => router.push('/history')}
+        accessibilityLabel={`Notifications, ${alertCount} overdue`}
       >
         <Ionicons name="notifications-outline" size={22} color={colors.text} />
         {alertCount > 0 ? (

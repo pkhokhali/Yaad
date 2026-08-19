@@ -24,7 +24,7 @@ type Options = {
   autoStart?: boolean;
   handsFree?: boolean;
   captureKind?: VoiceAddKind;
-  onSaved?: (title: string) => void;
+  onSaved?: (title: string, kind: VoiceAddKind) => void;
   onError?: (message: string) => void;
   /** Return handled to skip default save flow. */
   onTranscript?: (text: string) => Promise<'handled' | 'default'>;
@@ -47,6 +47,7 @@ export function useVoiceCapture(options: Options = {}) {
   const startingRef = useRef(false);
   const startedRef = useRef(false);
   const submittingRef = useRef(false);
+  const lastSubmittedRef = useRef('');
   const optionsRef = useRef(options);
   optionsRef.current = options;
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -63,8 +64,10 @@ export function useVoiceCapture(options: Options = {}) {
     async (raw: string) => {
       const text = normalizeSpeechTranscript(raw, voiceLanguage);
       if (!text || submittingRef.current) return;
+      if (lastSubmittedRef.current === text) return;
 
       submittingRef.current = true;
+      lastSubmittedRef.current = text;
       setBusy(true);
       setReceiving(false);
       try {
@@ -75,7 +78,7 @@ export function useVoiceCapture(options: Options = {}) {
         const kind = optionsRef.current.captureKind ?? 'reminder';
         const result = await submitVoiceCapture(text, getSettings(), kind);
         if (result.status === 'saved') {
-          optionsRef.current.onSaved?.(result.title);
+          optionsRef.current.onSaved?.(result.title, result.kind);
         }
       } catch {
         optionsRef.current.onError?.('Could not save that reminder');
@@ -187,6 +190,7 @@ export function useVoiceCapture(options: Options = {}) {
     setHint(copyForLanguage(uiLanguage).listening);
     wantedRef.current = true;
     accumulatorRef.current.reset();
+    lastSubmittedRef.current = '';
     setTranscript('');
     setReceiving(false);
     await beginSession();

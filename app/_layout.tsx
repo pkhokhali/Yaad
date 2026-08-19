@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { MemorySplash } from '@/components/MemorySplash';
 import OnboardingScreen from './onboarding';
-import { initializeAds } from '@/lib/ads/init';
+import { initializeAds, ensureAdsReady } from '@/lib/ads/init';
 import { preloadInterstitial } from '@/lib/ads/interstitial';
 import { maybeShowLaunchAd } from '@/lib/ads/launch';
 import { getDatabase } from '@/lib/db/database';
@@ -104,6 +104,11 @@ function RootLayoutInner() {
 
   useEffect(() => {
     if (!ready || !splashDone || !onboardingComplete) return;
+    ensureAdsReady()
+      .then((ok) => {
+        if (ok) preloadInterstitial();
+      })
+      .catch(() => undefined);
     maybeShowLaunchAd().catch(() => undefined);
     ensureNepaliOfflineModel().catch(() => undefined);
   }, [ready, splashDone, onboardingComplete]);
@@ -165,6 +170,13 @@ function RootLayoutInner() {
           }}
         />
         <Stack.Screen name="reminder/[id]" options={{ title: 'Reminder' }} />
+        <Stack.Screen
+          name="history"
+          options={{
+            headerShown: false,
+            title: 'Notifications',
+          }}
+        />
         <Stack.Screen
           name="money/add"
           options={{

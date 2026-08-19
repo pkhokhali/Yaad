@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  android:id="@+id/yaad_widget_root"
+  android:layout_width="match_parent"
+  android:layout_height="match_parent"
+  android:background="@drawable/yaad_widget_bg"
+  android:orientation="vertical"
+  android:padding="16dp">
+
+  <LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_vertical"
+    android:orientation="horizontal">
+
+    <TextView
+      android:id="@+id/widget_brand"
+      android:layout_width="0dp"
+      android:layout_height="wrap_content"
+      android:layout_weight="1"
+      android:text="Yaad"
+      android:textColor="#FFB300"
+      android:textSize="13sp"
+      android:textStyle="bold" />
+
+    <TextView
+      android:id="@+id/widget_badge"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:background="@drawable/yaad_widget_badge_bg"
+      android:paddingHorizontal="8dp"
+      android:paddingVertical="3dp"
+      android:text="3"
+      android:textColor="#12141A"
+      android:textSize="11sp"
+      android:textStyle="bold"
+      android:visibility="gone" />
+  </LinearLayout>
+
+  <LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="10dp"
+    android:orientation="horizontal">
+
+    <TextView
+      android:id="@+id/widget_stat_today"
+      android:layout_width="0dp"
+      android:layout_height="wrap_content"
+      android:layout_weight="1"
+      android:background="@drawable/yaad_widget_chip"
+      android:paddingHorizontal="10dp"
+      android:paddingVertical="6dp"
+      android:text="0 today"
+      android:textColor="#FFFFFF"
+      android:textSize="11sp"
+      android:textStyle="bold" />
+
+    <TextView
+      android:id="@+id/widget_stat_streak"
+      android:layout_width="0dp"
+      android:layout_height="wrap_content"
+      android:layout_marginStart="8dp"
+      android:layout_weight="1"
+      android:background="@drawable/yaad_widget_chip"
+      android:paddingHorizontal="10dp"
+      android:paddingVertical="6dp"
+      android:text="0 streak"
+      android:textColor="#FFFFFF"
+      android:textSize="11sp"
+      android:textStyle="bold" />
+  </LinearLayout>
+
+  <TextView
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="12dp"
+    android:text="Next reminder"
+    android:textAllCaps="true"
+    android:textColor="#8B93A7"
+    android:textSize="10sp"
+    android:letterSpacing="0.08" />
+
+  <TextView
+    android:id="@+id/widget_title"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="4dp"
+    android:ellipsize="end"
+    android:maxLines="2"
+    android:text="Take medicine"
+    android:textColor="#FFFFFF"
+    android:textSize="18sp"
+    android:textStyle="bold" />
+
+  <TextView
+    android:id="@+id/widget_time"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="6dp"
+    android:ellipsize="end"
+    android:maxLines="1"
+    android:text="Today, 8:00 AM"
+    android:textColor="#C5CAD6"
+    android:textSize="13sp" />
+
+  <TextView
+    android:id="@+id/widget_summary"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="10dp"
+    android:ellipsize="end"
+    android:maxLines="1"
+    android:text="Tap to open Yaad"
+    android:textColor="#5EB8FF"
+    android:textSize="11sp"
+    android:textStyle="bold" />
+</LinearLayout>

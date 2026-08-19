@@ -1,7 +1,27 @@
 import * as Crypto from 'expo-crypto';
 
 import { getDatabase } from '@/lib/db/database';
-import { NotificationLog, NotificationTier } from '@/types';
+import { NotificationLog, NotificationTier, Category } from '@/types';
+
+export type NotificationHistoryEntry = NotificationLog & {
+  reminder_title: string | null;
+  reminder_category: Category | null;
+};
+
+export async function listNotificationHistory(
+  limit = 120,
+): Promise<NotificationHistoryEntry[]> {
+  const database = await getDatabase();
+  return database.getAllAsync<NotificationHistoryEntry>(
+    `SELECT nl.id, nl.reminder_id, nl.fired_at, nl.tier,
+            r.title AS reminder_title, r.category AS reminder_category
+     FROM notification_log nl
+     LEFT JOIN reminders r ON r.id = nl.reminder_id
+     ORDER BY nl.fired_at DESC
+     LIMIT ?`,
+    [limit],
+  );
+}
 
 export async function logNotification(
   reminderId: string,
@@ -23,6 +43,25 @@ export async function logNotification(
   );
 
   return entry;
+}
+
+export async function recordNotificationFired(
+  reminderId: string,
+  tier: string,
+  firedAt: number = Date.now(),
+): Promise<void> {
+  const database = await getDatabase();
+  const existing = await database.getFirstAsync<{ id: string }>(
+    `SELECT id FROM notification_log
+     WHERE reminder_id = ? AND tier = ? AND fired_at > ?
+     LIMIT 1`,
+    [reminderId, tier, firedAt - 90_000],
+  );
+  if (existing) return;
+
+  const normalizedTier: NotificationTier =
+    tier === 'nudge' || tier.startsWith('pre') ? 'nudge' : 'alert';
+  await logNotification(reminderId, normalizedTier, firedAt);
 }
 
 export async function countSnoozeSignals(reminderId: string): Promise<number> {

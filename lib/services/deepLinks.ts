@@ -22,6 +22,12 @@ export async function handleYaadDeepLink(url: string): Promise<boolean> {
   if (host === 'capture' || host === 'voice') {
     const draft = firstString(parsed.queryParams?.draft);
     const voice = firstString(parsed.queryParams?.voice);
+    const flow = firstString(parsed.queryParams?.flow);
+    if (flow === 'guided') {
+      const { openGuidedVoiceCapture } = await import('@/lib/services/voiceCapture');
+      openGuidedVoiceCapture();
+      return true;
+    }
     if (draft) {
       const settings = useSettingsStore.getState().getSettings();
       await submitVoiceCapture(draft, settings);

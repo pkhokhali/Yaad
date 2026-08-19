@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  android:id="@+id/yaad_quick_widget_root"
+  android:layout_width="match_parent"
+  android:layout_height="match_parent"
+  android:background="@drawable/yaad_widget_bg"
+  android:gravity="center_vertical"
+  android:orientation="horizontal"
+  android:paddingHorizontal="14dp"
+  android:paddingVertical="10dp">
+
+  <TextView
+    android:layout_width="36dp"
+    android:layout_height="36dp"
+    android:background="@drawable/yaad_widget_mic_bg"
+    android:gravity="center"
+    android:text="🎤"
+    android:textSize="18sp" />
+
+  <LinearLayout
+    android:layout_width="0dp"
+    android:layout_height="wrap_content"
+    android:layout_marginStart="12dp"
+    android:layout_weight="1"
+    android:orientation="vertical">
+
+    <TextView
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:text="Yaad Voice"
+      android:textColor="#FFB300"
+      android:textSize="13sp"
+      android:textStyle="bold" />
+
+    <TextView
+      android:id="@+id/quick_widget_hint"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="2dp"
+      android:text="Tap to capture a reminder"
+      android:textColor="#C5CAD6"
+      android:textSize="11sp" />
+  </LinearLayout>
+</LinearLayout>

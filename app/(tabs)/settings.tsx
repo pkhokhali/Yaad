@@ -15,7 +15,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { openBatterySettings } from 'yaad-native';
+import { openBatterySettings, openOfflineSpeechSettings } from 'yaad-native';
 
 import { AdBanner } from '@/components/AdBanner';
 import { ContentColumn } from '@/components/ContentColumn';
@@ -32,6 +32,10 @@ import {
   downloadNepaliOfflineModel,
   getNepaliOfflineStatus,
 } from '@/lib/services/offlineVoiceModel';
+import {
+  offlineSpeechStepsText,
+  showOfflineSpeechHelp,
+} from '@/lib/services/offlineSpeechSteps';
 import { rescheduleOpenReminders } from '@/lib/services/notifications';
 import { openGuidedVoiceCapture } from '@/lib/services/voiceCapture';
 import { VOICE_LANGUAGE_OPTIONS } from '@/lib/services/voiceLanguages';
@@ -288,16 +292,14 @@ export default function SettingsScreen() {
     setDownloadingNepali(true);
     try {
       const result = await downloadNepaliOfflineModel();
-      Alert.alert(
-        result.ok
-          ? uiLanguage === 'ne'
-            ? 'नेपाली अफलाइन आवाज'
-            : 'Nepali offline voice'
-          : uiLanguage === 'ne'
-            ? 'डाउनलोड भएन'
-            : 'Download did not finish',
-        result.message,
-      );
+      if (result.ok) {
+        Alert.alert(
+          uiLanguage === 'ne' ? 'नेपाली अफलाइन आवाज' : 'Nepali offline voice',
+          result.message,
+        );
+      } else {
+        showOfflineSpeechHelp(uiLanguage, result.message);
+      }
       await refreshNepaliPack();
     } finally {
       setDownloadingNepali(false);
@@ -643,6 +645,32 @@ export default function SettingsScreen() {
                     </Text>
                   )}
                 </Pressable>
+                {offlineNepali !== 'ready' ? (
+                  <>
+                    <Text style={[styles.fallbackNote, { marginTop: spacing.md }]}>
+                      {offlineSpeechStepsText(uiLanguage)}
+                    </Text>
+                    <Pressable
+                      style={[styles.batteryBtn, { marginTop: spacing.sm }]}
+                      onPress={() => {
+                        openOfflineSpeechSettings().catch(() => {
+                          showOfflineSpeechHelp(uiLanguage);
+                        });
+                      }}
+                    >
+                      <Text style={styles.batteryBtnText}>
+                        {uiLanguage === 'ne'
+                          ? 'Google speech settings खोल्नुहोस्'
+                          : 'Open Google speech settings'}
+                      </Text>
+                    </Pressable>
+                    <Text style={[styles.rowHint, { marginTop: spacing.sm }]}>
+                      {uiLanguage === 'ne'
+                        ? 'Wi‑Fi मा voice सधैं चल्छ — अफलाइन प्याक बिना पनि।'
+                        : 'Voice on Wi‑Fi always works — even without the offline pack.'}
+                    </Text>
+                  </>
+                ) : null}
               </View>
             ) : null}
             {Platform.OS === 'android' && voiceLanguage === 'new' ? (
@@ -762,6 +790,21 @@ export default function SettingsScreen() {
               >
                 <Text style={styles.batteryBtnText}>Open battery settings</Text>
               </Pressable>
+            </View>
+          ) : null}
+
+          {Platform.OS === 'android' ? (
+            <View style={[styles.card, { marginTop: spacing.lg }]}>
+              <Text style={styles.rowTitle}>Home screen widgets</Text>
+              <Text style={[styles.rowHint, { marginTop: spacing.sm }]}>
+                Long-press home screen → Widgets:
+              </Text>
+              <Text style={[styles.rowHint, { marginTop: spacing.xs }]}>
+                • Yaad — next reminder, today count, streak, overdue badge
+              </Text>
+              <Text style={[styles.rowHint, { marginTop: spacing.xs }]}>
+                • Yaad Voice — one tap to start guided voice capture
+              </Text>
             </View>
           ) : null}
 

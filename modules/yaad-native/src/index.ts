@@ -5,6 +5,16 @@ type SynthesizeResult = {
   soundUri: string;
 };
 
+export type HomeWidgetPayload = {
+  brand: string;
+  nextTitle: string;
+  nextTime: string;
+  overdueCount: number;
+  todayCount: number;
+  streak: number;
+  summaryLine: string;
+};
+
 type YaadNativeModule = {
   synthesizeAlertSound: (
     text: string,
@@ -18,6 +28,8 @@ type YaadNativeModule = {
     spoken: string,
   ) => Promise<void>;
   openBatterySettings: () => Promise<void>;
+  openOfflineSpeechSettings: () => Promise<void>;
+  updateHomeWidget: (payload: HomeWidgetPayload) => Promise<void>;
 };
 
 const Native =
@@ -47,4 +59,14 @@ export async function showCallAlert(
 export async function openBatterySettings(): Promise<void> {
   if (!Native) return;
   await Native.openBatterySettings();
+}
+
+export async function openOfflineSpeechSettings(): Promise<void> {
+  if (!Native) return;
+  await Native.openOfflineSpeechSettings();
+}
+
+export async function updateHomeWidget(payload: HomeWidgetPayload): Promise<void> {
+  if (!Native) return;
+  await Native.updateHomeWidget(payload);
 }

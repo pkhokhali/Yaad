@@ -19,5 +19,29 @@
         android:name="android.support.FILE_PROVIDER_PATHS"
         android:resource="@xml/yaad_file_paths" />
     </provider>
+
+    <receiver
+      android:name=".YaadWidgetProvider"
+      android:exported="true"
+      android:label="Yaad">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+      </intent-filter>
+      <meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/yaad_widget_info" />
+    </receiver>
+
+    <receiver
+      android:name=".YaadQuickWidgetProvider"
+      android:exported="true"
+      android:label="Yaad Voice">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+      </intent-filter>
+      <meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/yaad_quick_widget_info" />
+    </receiver>
   </application>
 </manifest>

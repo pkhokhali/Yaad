@@ -1,7 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
+import {
+  BannerAd,
+  BannerAdSize,
+  type BannerAdProps,
+} from 'react-native-google-mobile-ads';
 
-import { whenAdsReady } from '@/lib/ads/init';
+import { ensureAdsReady, whenAdsReady } from '@/lib/ads/init';
 import { AD_UNITS } from '@/lib/ads/units';
 import { useTheme } from '@/providers/ThemeProvider';
 
@@ -12,53 +17,50 @@ type Props = {
 /** Compact banner. Never place next to the mic / CaptureBar. */
 export function AdBanner({ onHeight }: Props) {
   const [sdkReady, setSdkReady] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const [nonce, setNonce] = useState(0);
   const { colors } = useTheme();
-  const hidden = Platform.OS === 'web' || failed;
+  const { width } = useWindowDimensions();
+  const hidden = Platform.OS === 'web';
 
   useEffect(() => {
     whenAdsReady().then(setSdkReady);
   }, []);
 
   useEffect(() => {
-    if (hidden) onHeight?.(0);
-  }, [hidden, onHeight]);
-
-  const Banner = useMemo(() => {
-    if (Platform.OS === 'web') return null;
-    try {
-      return require('react-native-google-mobile-ads') as typeof import('react-native-google-mobile-ads');
-    } catch {
-      return null;
+    if (!sdkReady) {
+      ensureAdsReady().then(setSdkReady);
     }
-  }, []);
+  }, [sdkReady]);
 
-  if (hidden || !Banner || !sdkReady) return null;
+  useEffect(() => {
+    if (hidden || !loaded) onHeight?.(0);
+  }, [hidden, loaded, onHeight]);
 
-  const { BannerAd, BannerAdSize } = Banner;
-  const size =
-    BannerAdSize.ANCHORED_ADAPTIVE_BANNER ?? BannerAdSize.BANNER;
+  if (hidden || !sdkReady) return null;
+
+  const size: BannerAdProps['size'] =
+    width >= 728 ? BannerAdSize.LEADERBOARD : BannerAdSize.BANNER;
 
   return (
     <View
       key={nonce}
       style={[styles.wrap, { backgroundColor: colors.surface }]}
-      onLayout={(e) => onHeight?.(e.nativeEvent.layout.height)}
+      onLayout={(e) => {
+        if (loaded) onHeight?.(e.nativeEvent.layout.height);
+      }}
       pointerEvents="box-none"
     >
       <BannerAd
         unitId={AD_UNITS.banner}
         size={size}
+        onAdLoaded={() => setLoaded(true)}
         onAdFailedToLoad={(error) => {
+          setLoaded(false);
           if (__DEV__) {
             console.warn('[AdBanner] failed to load', error);
           }
-          if (nonce < 5) {
-            setTimeout(() => setNonce((n) => n + 1), 5000);
-            return;
-          }
-          setFailed(true);
+          setTimeout(() => setNonce((n) => n + 1), Math.min(30_000, 5000 + nonce * 2000));
         }}
       />
     </View>
@@ -69,7 +71,6 @@ const styles = StyleSheet.create({
   wrap: {
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 50,
     width: '100%',
     overflow: 'hidden',
   },

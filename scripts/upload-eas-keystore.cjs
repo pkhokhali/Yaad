@@ -1,17 +1,50 @@
 #!/usr/bin/env node
 'use strict';
 
+const { execSync } = require('child_process');
+const fs = require('fs');
 const path = require('path');
-const { readAndroidCredentialsAsync } = require('eas-cli/build/credentials/credentialsJson/read');
+
+const toolsDir = path.join(__dirname, '.eas-cli-tool');
+
+function getEasCliRoot() {
+  try {
+    return path.dirname(require.resolve('eas-cli/package.json'));
+  } catch {
+    // eas-cli is not a runtime dependency; install on demand for credential upload.
+    if (!fs.existsSync(path.join(toolsDir, 'node_modules', 'eas-cli', 'package.json'))) {
+      fs.mkdirSync(toolsDir, { recursive: true });
+      execSync('npm install eas-cli@21.8.0 --no-save --prefix .', {
+        cwd: toolsDir,
+        stdio: 'inherit',
+      });
+    }
+    return path.join(toolsDir, 'node_modules', 'eas-cli');
+  }
+}
+
+const easRoot = getEasCliRoot();
+const { readAndroidCredentialsAsync } = require(path.join(
+  easRoot,
+  'build/credentials/credentialsJson/read',
+));
 const {
   getKeystoreWithType,
   validateKeystore,
-} = require('eas-cli/build/credentials/android/utils/keystoreNew');
-const androidApi = require('eas-cli/build/credentials/android/api/GraphqlClient');
-const { getOwnerAccountForProjectIdAsync } = require('eas-cli/build/project/projectUtils');
-const SessionManager = require('eas-cli/build/user/SessionManager').default;
-const { createGraphqlClient } = require('eas-cli/build/commandUtils/context/contextUtils/createGraphqlClient');
-const { createAnalyticsAsync } = require('eas-cli/build/analytics/AnalyticsManager');
+} = require(path.join(easRoot, 'build/credentials/android/utils/keystoreNew'));
+const androidApi = require(path.join(easRoot, 'build/credentials/android/api/GraphqlClient'));
+const { getOwnerAccountForProjectIdAsync } = require(path.join(
+  easRoot,
+  'build/project/projectUtils',
+));
+const SessionManager = require(path.join(easRoot, 'build/user/SessionManager')).default;
+const {
+  createGraphqlClient,
+} = require(path.join(easRoot, 'build/commandUtils/context/contextUtils/createGraphqlClient'));
+const { createAnalyticsAsync } = require(path.join(
+  easRoot,
+  'build/analytics/AnalyticsManager',
+));
 
 async function main() {
   const projectDir = path.join(__dirname, '..');

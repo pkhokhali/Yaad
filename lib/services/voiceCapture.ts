@@ -14,8 +14,8 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import { AppSettings } from '@/types';
 
 export type VoiceCaptureResult =
-  | { status: 'saved'; title: string }
-  | { status: 'confirm' }
+  | { status: 'saved'; title: string; kind: VoiceAddKind }
+  | { status: 'confirm'; kind: VoiceAddKind }
   | { status: 'empty' };
 
 function openConfirm(kind: VoiceAddKind, draft: string) {
@@ -51,18 +51,20 @@ export async function submitVoiceCapture(
     const parsed = parseExpenseVoice(text);
     if (!parsed) {
       openConfirm('expense', text);
-      return { status: 'confirm' };
+      return { status: 'confirm', kind: 'expense' };
     }
     await useMoneyStore.getState().addEntry({
       kind: 'expense',
       title: parsed.title,
       amount: parsed.amount,
       ledger: parsed.ledger,
+      status: 'settled',
       notes: text,
     });
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     return {
       status: 'saved',
+      kind: 'expense',
       title: `${kindLabel('expense', appSettings.voiceLanguage)} · Rs ${parsed.amount}`,
     };
   }
@@ -90,6 +92,7 @@ export async function submitVoiceCapture(
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       return {
         status: 'saved',
+        kind,
         title: `${kindLabel(kind, appSettings.voiceLanguage)} · ${parsed.title}`,
       };
     }
@@ -98,7 +101,7 @@ export async function submitVoiceCapture(
   }
 
   openConfirm(kind, text);
-  return { status: 'confirm' };
+  return { status: 'confirm', kind };
 }
 
 export function openVoiceCapture(options?: {

@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import { showCallAlert } from 'yaad-native';
 
 import { announceFromNotification } from '@/lib/services/announce';
+import { recordNotificationFired } from '@/lib/db/notificationLog';
 import { processNotificationResponse } from '@/lib/services/notificationActions';
 import { loadPersistedSettings } from '@/lib/settings/loadSettings';
 import { Category } from '@/types';
@@ -58,6 +59,10 @@ TaskManager.defineTask(YAAD_BACKGROUND_NOTIFICATION_TASK, async ({ data, error }
 
   if (!ndata || ndata.kind === 'sweep') {
     return Notifications.BackgroundNotificationTaskResult.NoData;
+  }
+
+  if (ndata.reminderId && ndata.tier) {
+    await recordNotificationFired(String(ndata.reminderId), String(ndata.tier));
   }
 
   const settings = await loadPersistedSettings();
