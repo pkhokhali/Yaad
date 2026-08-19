@@ -6,6 +6,7 @@ import {
   listMoneyEntries,
   monthTotals,
 } from '@/lib/db/money';
+import { useSettingsStore } from '@/store/useSettingsStore';
 import {
   CreateMoneyInput,
   MoneyEntry,
@@ -28,24 +29,27 @@ export const useMoneyStore = create<MoneyState>((set) => ({
   ready: false,
 
   bootstrap: async () => {
+    const calendar = useSettingsStore.getState().calendarDisplay ?? 'both';
     const [entries, month] = await Promise.all([
       listMoneyEntries(),
-      monthTotals(),
+      monthTotals(new Date(), calendar),
     ]);
     set({ entries, month, ready: true });
   },
 
   refresh: async () => {
+    const calendar = useSettingsStore.getState().calendarDisplay ?? 'both';
     const [entries, month] = await Promise.all([
       listMoneyEntries(),
-      monthTotals(),
+      monthTotals(new Date(), calendar),
     ]);
     set({ entries, month });
   },
 
   addEntry: async (input) => {
     const entry = await createMoneyEntry(input);
-    const month = await monthTotals();
+    const calendar = useSettingsStore.getState().calendarDisplay ?? 'both';
+    const month = await monthTotals(new Date(), calendar);
     set((state) => ({
       entries: [entry, ...state.entries],
       month,
@@ -55,7 +59,8 @@ export const useMoneyStore = create<MoneyState>((set) => ({
 
   removeEntry: async (id) => {
     await deleteMoneyEntry(id);
-    const month = await monthTotals();
+    const calendar = useSettingsStore.getState().calendarDisplay ?? 'both';
+    const month = await monthTotals(new Date(), calendar);
     set((state) => ({
       entries: state.entries.filter((e) => e.id !== id),
       month,

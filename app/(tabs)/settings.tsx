@@ -44,6 +44,7 @@ import { useTheme } from '@/providers/ThemeProvider';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useYaadItemStore } from '@/store/useYaadItemStore';
 import {
+  CalendarDisplay,
   ScaleMode,
   ThemeName,
   UiLanguage,
@@ -51,6 +52,7 @@ import {
   minutesFromDate,
   minutesToClockLabel,
 } from '@/types';
+import { useMoneyStore } from '@/store/useMoneyStore';
 
 function applyScheduleSettings() {
   rescheduleOpenReminders(useSettingsStore.getState().getSettings()).catch(
@@ -224,6 +226,7 @@ export default function SettingsScreen() {
   const notificationSound = useSettingsStore((s) => s.notificationSound);
   const voiceLanguage = useSettingsStore((s) => s.voiceLanguage ?? 'en');
   const uiLanguage = useSettingsStore((s) => s.uiLanguage ?? 'en');
+  const calendarDisplay = useSettingsStore((s) => s.calendarDisplay ?? 'both');
   const allowVoiceOnMobileData = useSettingsStore(
     (s) => s.allowVoiceOnMobileData ?? false,
   );
@@ -236,6 +239,7 @@ export default function SettingsScreen() {
   const setNotificationSound = useSettingsStore((s) => s.setNotificationSound);
   const setVoiceLanguage = useSettingsStore((s) => s.setVoiceLanguage);
   const setUiLanguage = useSettingsStore((s) => s.setUiLanguage);
+  const setCalendarDisplay = useSettingsStore((s) => s.setCalendarDisplay);
   const setAllowVoiceOnMobileData = useSettingsStore(
     (s) => s.setAllowVoiceOnMobileData,
   );
@@ -553,6 +557,36 @@ export default function SettingsScreen() {
                 { value: 'ne', label: 'नेपाली' },
               ]}
             />
+          </View>
+
+          <Text style={styles.section}>
+            {uiLanguage === 'ne' ? 'पात्रो' : 'Calendar'}
+          </Text>
+          <View style={styles.card}>
+            <Text style={[styles.rowHint, { marginBottom: spacing.md }]}>
+              {uiLanguage === 'ne'
+                ? 'मिति देखाउने तरिका। रिमाइन्डर समय AD मा नै चल्छ।'
+                : 'How dates appear. Reminders still fire on the same real-world time.'}
+            </Text>
+            <Segmented<CalendarDisplay>
+              value={calendarDisplay}
+              onChange={(value) => {
+                setCalendarDisplay(value);
+                if (useMoneyStore.getState().ready) {
+                  void useMoneyStore.getState().refresh();
+                }
+              }}
+              options={[
+                { value: 'ad', label: uiLanguage === 'ne' ? 'ई.सं.' : 'English (AD)' },
+                { value: 'bs', label: uiLanguage === 'ne' ? 'वि.सं.' : 'Nepali (BS)' },
+                { value: 'both', label: uiLanguage === 'ne' ? 'दुवै' : 'Both' },
+              ]}
+            />
+            <Text style={[styles.rowHint, { marginTop: spacing.sm }]}>
+              {uiLanguage === 'ne'
+                ? 'वि.सं. छान्दा खर्च “यो महिना” पनि नेपाली महिना अनुसार हुन्छ।'
+                : 'With Nepali (BS), expense “this month” follows the Bikram Sambat month.'}
+            </Text>
           </View>
 
           <Text style={styles.section}>

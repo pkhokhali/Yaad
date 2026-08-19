@@ -15,11 +15,12 @@ import { ContentColumn } from '@/components/ContentColumn';
 import { EmptyPanel } from '@/components/dashboard/EmptyPanel';
 import { SurfaceCard } from '@/components/dashboard/SurfaceCard';
 import { categoryColors, radii, spacing } from '@/constants/theme';
-import { formatDueLabel, overdue } from '@/lib/dashboard/reminders';
+import { overdue } from '@/lib/dashboard/reminders';
 import {
   listNotificationHistory,
   NotificationHistoryEntry,
 } from '@/lib/db/notificationLog';
+import { useDateFormat } from '@/hooks/useDateFormat';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useScale } from '@/providers/ScaleProvider';
 import { useTheme } from '@/providers/ThemeProvider';
@@ -35,23 +36,20 @@ function tierLabel(tier: string): string {
   return 'Alert';
 }
 
-function formatWhen(ts: number | null): string {
+function formatWhen(
+  ts: number | null,
+  formatDateTime: (value: number) => string,
+): string {
   if (!ts) return 'Unknown time';
-  return new Date(ts).toLocaleString([], {
-    day: 'numeric',
-    month: 'short',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  return formatDateTime(ts);
 }
 
-function dayKey(ts: number | null): string {
+function dayKey(
+  ts: number | null,
+  formatDayHeader: (value: number) => string,
+): string {
   if (!ts) return 'Unknown';
-  return new Date(ts).toLocaleDateString([], {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'short',
-  });
+  return formatDayHeader(ts);
 }
 
 type Row =
@@ -65,6 +63,7 @@ export default function HistoryScreen() {
   const { gutter } = useResponsive();
   const { colors } = useTheme();
   const { scale } = useScale();
+  const { formatDateTime, formatDayHeader } = useDateFormat();
   const reminders = useYaadItemStore((s) => s.reminders);
   const [loading, setLoading] = useState(true);
   const [entries, setEntries] = useState<NotificationHistoryEntry[]>([]);
@@ -112,7 +111,7 @@ export default function HistoryScreen() {
       });
       let lastDay = '';
       for (const entry of entries) {
-        const key = dayKey(entry.fired_at);
+        const key = dayKey(entry.fired_at, formatDayHeader);
         if (key !== lastDay) {
           out.push({ kind: 'header', id: `h-${key}`, label: key });
           lastDay = key;
@@ -122,7 +121,7 @@ export default function HistoryScreen() {
     }
 
     return out;
-  }, [entries, overdueItems]);
+  }, [entries, formatDayHeader, overdueItems]);
 
   const renderOverdue = (reminder: Reminder) => {
     const category = reminder.category as Category;
@@ -137,7 +136,7 @@ export default function HistoryScreen() {
                 {reminder.title}
               </Text>
               <Text style={[styles.meta, { color: colors.danger }]}>
-                Overdue · {formatDueLabel(reminder.due_at)}
+                Overdue · {formatDateTime(reminder.due_at)}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.textSubtle} />
@@ -168,7 +167,7 @@ export default function HistoryScreen() {
                 {title}
               </Text>
               <Text style={[styles.meta, { color: colors.textMuted }]}>
-                {formatWhen(entry.fired_at)} · {tierLabel(entry.tier)}
+                {formatWhen(entry.fired_at, formatDateTime)} · {tierLabel(entry.tier)}
               </Text>
             </View>
             {entry.reminder_id ? (

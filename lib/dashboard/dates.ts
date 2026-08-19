@@ -1,3 +1,14 @@
+import {
+  endOfNepaliMonth,
+  formatDisplayDate,
+  formatDisplayDateShort,
+  formatDisplayDateTime,
+  formatDisplayDayHeader,
+  formatMonthLabelForCalendar,
+  startOfNepaliMonth,
+} from '@/lib/calendar/nepali';
+import { CalendarDisplay, UiLanguage } from '@/types';
+
 export function startOfDay(date = new Date()): Date {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
@@ -38,21 +49,47 @@ export function endOfMonth(date = new Date()): Date {
   return d;
 }
 
+export function monthRange(
+  date = new Date(),
+  calendar: CalendarDisplay = 'ad',
+): { start: number; end: number } {
+  if (calendar === 'bs' || calendar === 'both') {
+    return {
+      start: startOfNepaliMonth(date).getTime(),
+      end: endOfNepaliMonth(date).getTime(),
+    };
+  }
+  return {
+    start: startOfMonth(date).getTime(),
+    end: endOfMonth(date).getTime(),
+  };
+}
+
 export function greetingForHour(hour = new Date().getHours()): string {
   if (hour < 12) return 'Good morning';
   if (hour < 17) return 'Good afternoon';
   return 'Good evening';
 }
 
-export function formatLongDate(date = new Date()): string {
-  return date.toLocaleDateString([], {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
+export function formatLongDate(
+  date = new Date(),
+  calendar: CalendarDisplay = 'ad',
+  uiLanguage: UiLanguage = 'en',
+): string {
+  return formatDisplayDate(date, calendar, uiLanguage);
 }
 
-export function formatMonthLabel(date = new Date()): string {
-  return date.toLocaleDateString([], { month: 'long', year: 'numeric' });
+export function formatMonthLabel(
+  date = new Date(),
+  calendar: CalendarDisplay = 'ad',
+  uiLanguage: UiLanguage = 'en',
+): string {
+  return formatMonthLabelForCalendar(date, calendar, uiLanguage);
 }
+
+export {
+  formatDisplayDate,
+  formatDisplayDateShort,
+  formatDisplayDateTime,
+  formatDisplayDayHeader,
+};

@@ -4,6 +4,7 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { CategoryChip } from '@/components/CategoryChip';
 import { ChecklistRows } from '@/components/ChecklistRows';
 import { useCopy } from '@/lib/i18n/copy';
+import { useDateFormat } from '@/hooks/useDateFormat';
 import { CATEGORY_LABEL, normalizeCategory } from '@/lib/care/categories';
 import { useScale } from '@/providers/ScaleProvider';
 import { useTheme } from '@/providers/ThemeProvider';
@@ -16,7 +17,11 @@ type Props = {
   onToggleItem?: (index: number) => void;
 };
 
-function formatDue(ms: number, overdueLabel: string): { text: string; overdue: boolean } {
+function formatDue(
+  ms: number,
+  overdueLabel: string,
+  formatDateShort: (date: Date) => string,
+): { text: string; overdue: boolean } {
   const due = new Date(ms);
   const time = due.toLocaleTimeString([], {
     hour: 'numeric',
@@ -25,11 +30,7 @@ function formatDue(ms: number, overdueLabel: string): { text: string; overdue: b
   const overdue = ms < Date.now();
   if (overdue) {
     return {
-      text: `${overdueLabel} · ${due.toLocaleDateString([], {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-      })} ${time}`,
+      text: `${overdueLabel} · ${formatDateShort(due)} ${time}`,
       overdue: true,
     };
   }
@@ -45,10 +46,11 @@ export function ReminderCard({
   const { colors } = useTheme();
   const { scale } = useScale();
   const copy = useCopy();
+  const { formatDateShort } = useDateFormat();
   const done = Boolean(reminder.is_done);
   const category = normalizeCategory(reminder.category);
   const photo = reminder.image_uri;
-  const due = formatDue(reminder.due_at, copy.overdue);
+  const due = formatDue(reminder.due_at, copy.overdue, formatDateShort);
   const items = reminder.items ?? [];
   const doneCount = items.filter((item) => item.done).length;
 

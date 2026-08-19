@@ -8,10 +8,7 @@ import { SurfaceCard } from '@/components/dashboard/SurfaceCard';
 import { AdBanner } from '@/components/AdBanner';
 import { ContentColumn } from '@/components/ContentColumn';
 import { spacing } from '@/constants/theme';
-import {
-  formatLongDate,
-  greetingForHour,
-} from '@/lib/dashboard/dates';
+import { greetingForHour } from '@/lib/dashboard/dates';
 import {
   dueThisWeek,
   dueToday,
@@ -21,6 +18,7 @@ import {
   todos,
 } from '@/lib/dashboard/reminders';
 import { formatRs } from '@/lib/db/money';
+import { useDateFormat } from '@/hooks/useDateFormat';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useTheme } from '@/providers/ThemeProvider';
 import { useMoneyStore } from '@/store/useMoneyStore';
@@ -31,6 +29,7 @@ export default function DashboardScreen() {
   const router = useRouter();
   const { gutter } = useResponsive();
   const { colors } = useTheme();
+  const { formatLongDate } = useDateFormat();
   const displayName = useSettingsStore((s) => s.displayName?.trim());
   const reminders = useYaadItemStore((s) => s.reminders);
   const month = useMoneyStore((s) => s.month);

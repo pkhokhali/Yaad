@@ -1,5 +1,6 @@
 import * as chrono from 'chrono-node';
 
+import { parseBsDateFromText } from '@/lib/calendar/nepali';
 import { formatActionTitle, normalizeReminderTitle } from '@/lib/services/actionCopy';
 import { suggestCategory, suggestsDailyRepeat } from '@/lib/services/categorize';
 import { listRecentReminders } from '@/lib/db/reminders';
@@ -156,25 +157,39 @@ export function parseLocalDueAt(
   let matched = false;
   let hadClock = false;
 
+  const bsDate = parseBsDateFromText(text, base);
+  const hasBsDate = Boolean(bsDate);
+  if (bsDate) {
+    due.setFullYear(
+      bsDate.getFullYear(),
+      bsDate.getMonth(),
+      bsDate.getDate(),
+    );
+    matched = true;
+  }
+
   if (
-    hasWord(text, 'भोलि') ||
-    hasWord(text, 'bholi') ||
-    hasWord(text, 'कन्हय्')
+    !hasBsDate &&
+    (hasWord(text, 'भोलि') ||
+      hasWord(text, 'bholi') ||
+      hasWord(text, 'कन्हय्'))
   ) {
     addDays(due, 1);
     matched = true;
   } else if (
-    hasWord(text, 'पर्सि') ||
-    hasWord(text, 'parsi') ||
-    hasWord(text, 'पिन्हय्')
+    !hasBsDate &&
+    (hasWord(text, 'पर्सि') ||
+      hasWord(text, 'parsi') ||
+      hasWord(text, 'पिन्हय्'))
   ) {
     addDays(due, 2);
     matched = true;
   } else if (
-    hasWord(text, 'आज') ||
-    hasWord(text, 'aaja') ||
-    hasWord(text, 'aja') ||
-    hasWord(text, 'थौं')
+    !hasBsDate &&
+    (hasWord(text, 'आज') ||
+      hasWord(text, 'aaja') ||
+      hasWord(text, 'aja') ||
+      hasWord(text, 'थौं'))
   ) {
     matched = true;
   }
@@ -247,7 +262,11 @@ export function parseLocalDueAt(
 }
 
 function stripLocalPhrases(title: string): string {
-  return title.replace(
+  const bsNoise =
+    /(?:बैशाख|जेठ|असार|श्रावण|भाद्र|असोज|कात्तिक|मंसिर|पौष|माघ|फागुन|चैत|baisakh|baishakh|jestha|jeth|asar|ashadh|shrawan|sawan|saun|bhadra|aswin|asoj|kartik|mangsir|poush|push|magh|falgun|phagun|chaitra|20\d{2}|19\d{2}|[०-९]{4})/giu;
+  return title
+    .replace(bsNoise, ' ')
+    .replace(
     /(?:आज|भोलि|पर्सि|बिहान|दिउँसो|दिउसो|बेलुका|साँझ|राति|थौं|कन्हय्|पिन्हय्|भलनी|सन्झ्याः|चाः|aaja|aja|bholi|parsi|bihana|beluka|rati|diuso|\d+[०-९]*\s*(?:बजे|baje|मिनेट(?:मा)?|घण्टा(?:मा)?|दिन(?:मा)?|min(?:ute)?s?|hours?|din)|[०-९]+\s*(?:बजे|मिनेट(?:मा)?|घण्टा(?:मा)?|दिन(?:मा)?)|(?:एक|दुई|दुइ|तीन|चार|पाँच|पांच|छ|सात|आठ|नौ|दश|दस|एघार|बाह्र)\s*(?:बजे|मिनेट(?:मा)?|घण्टा(?:मा)?))/giu,
     '',
   );

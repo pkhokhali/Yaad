@@ -11,6 +11,8 @@ export type UrgencyCurve = 'standard' | 'escalating';
 export type NotificationTier = 'nudge' | 'alert';
 export type VoiceLanguage = 'en' | 'ne' | 'new';
 export type UiLanguage = 'en' | 'ne';
+/** Bikram Sambat display mode. Storage stays AD timestamps. */
+export type CalendarDisplay = 'ad' | 'bs' | 'both';
 
 export type ThemeName = 'dark' | 'normal';
 export type ScaleMode = 'standard' | 'comfort';
@@ -54,6 +56,8 @@ export interface AppSettings {
   voiceLanguage: VoiceLanguage;
   /** Screen copy. Independent from speech recognition language. */
   uiLanguage: UiLanguage;
+  /** How dates appear in the app. Reminders still fire on AD time. */
+  calendarDisplay: CalendarDisplay;
   /**
    * Google STT may use Wi‑Fi whenever the phone is online.
    * Mobile data is used only when this is on.
@@ -93,6 +97,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   quietHoursEnabled: true,
   voiceLanguage: 'en',
   uiLanguage: 'en',
+  calendarDisplay: 'both',
   allowVoiceOnMobileData: false,
   offlineNepaliDownloadAttemptedAt: 0,
   speakAlerts: true,

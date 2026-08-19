@@ -18,8 +18,8 @@ import { PrimaryButton } from '@/components/dashboard/PrimaryButton';
 import { SurfaceCard } from '@/components/dashboard/SurfaceCard';
 import { ContentColumn } from '@/components/ContentColumn';
 import { spacing } from '@/constants/theme';
-import { formatMonthLabel } from '@/lib/dashboard/dates';
 import { formatRs } from '@/lib/db/money';
+import { useDateFormat } from '@/hooks/useDateFormat';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useTheme } from '@/providers/ThemeProvider';
 import { useMoneyStore } from '@/store/useMoneyStore';
@@ -43,9 +43,11 @@ const LEDGER_FILTERS: { value: LedgerFilter; label: string }[] = [
 function EntryRow({
   entry,
   onDelete,
+  formatDateShort,
 }: {
   entry: MoneyEntry;
   onDelete: () => void;
+  formatDateShort: (date: Date) => string;
 }) {
   const { colors } = useTheme();
   return (
@@ -58,11 +60,7 @@ function EntryRow({
       <View style={{ flex: 1 }}>
         <Text style={[styles.rowTitle, { color: colors.text }]}>{entry.title}</Text>
         <Text style={[styles.rowMeta, { color: colors.textMuted }]}>
-          {new Date(entry.entry_date).toLocaleDateString([], {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric',
-          })}
+          {formatDateShort(new Date(entry.entry_date))}
           {entry.person ? ` · ${entry.person}` : ''}
           {entry.kind === 'expense' ? ` · ${entry.ledger}` : ' · lend'}
         </Text>
@@ -106,6 +104,7 @@ export default function ExpenseScreen() {
   const router = useRouter();
   const { gutter } = useResponsive();
   const { colors } = useTheme();
+  const { formatMonthLabel, formatDateShort } = useDateFormat();
   const entries = useMoneyStore((s) => s.entries);
   const month = useMoneyStore((s) => s.month);
   const removeEntry = useMoneyStore((s) => s.removeEntry);
@@ -199,6 +198,7 @@ export default function ExpenseScreen() {
           renderItem={({ item }) => (
             <EntryRow
               entry={item}
+              formatDateShort={formatDateShort}
               onDelete={() =>
                 Alert.alert('Delete entry?', item.title, [
                   { text: 'Cancel', style: 'cancel' },

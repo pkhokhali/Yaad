@@ -9,7 +9,8 @@ import {
   MoneyStatus,
   MonthMoneyTotals,
 } from '@/types/money';
-import { endOfMonth, startOfMonth } from '@/lib/dashboard/dates';
+import { monthRange } from '@/lib/dashboard/dates';
+import { CalendarDisplay } from '@/types';
 
 function mapRow(row: MoneyEntry): MoneyEntry {
   return {
@@ -72,10 +73,10 @@ export async function deleteMoneyEntry(id: string): Promise<void> {
 
 export async function monthTotals(
   date = new Date(),
+  calendar: CalendarDisplay = 'ad',
 ): Promise<MonthMoneyTotals> {
   const db = await getDatabase();
-  const start = startOfMonth(date).getTime();
-  const end = endOfMonth(date).getTime();
+  const { start, end } = monthRange(date, calendar);
   const rows = await db.getAllAsync<{
     kind: MoneyKind;
     ledger: ExpenseLedger;

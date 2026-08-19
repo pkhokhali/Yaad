@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { clampAlertCount, migrateLegacyAlertStrength } from '@/lib/care/alerts';
-import { AppSettings, DEFAULT_SETTINGS, ScaleMode, ThemeName, UiLanguage, UrgencyCurve, VoiceLanguage } from '@/types';
+import { AppSettings, DEFAULT_SETTINGS, ScaleMode, ThemeName, UiLanguage, UrgencyCurve, VoiceLanguage, CalendarDisplay } from '@/types';
 
 type SettingsState = AppSettings & {
   hydrated: boolean;
@@ -14,6 +14,7 @@ type SettingsState = AppSettings & {
   setNotificationSound: (sound: AppSettings['notificationSound']) => void;
   setVoiceLanguage: (voiceLanguage: VoiceLanguage) => void;
   setUiLanguage: (uiLanguage: UiLanguage) => void;
+  setCalendarDisplay: (calendarDisplay: CalendarDisplay) => void;
   setAllowVoiceOnMobileData: (allowVoiceOnMobileData: boolean) => void;
   setOfflineNepaliDownloadAttemptedAt: (at: number) => void;
   setSpeakAlerts: (speakAlerts: boolean) => void;
@@ -35,6 +36,7 @@ function snapshot(s: SettingsState): AppSettings {
     quietHoursEnabled: s.quietHoursEnabled,
     voiceLanguage: s.voiceLanguage ?? DEFAULT_SETTINGS.voiceLanguage,
     uiLanguage: s.uiLanguage ?? DEFAULT_SETTINGS.uiLanguage,
+    calendarDisplay: s.calendarDisplay ?? DEFAULT_SETTINGS.calendarDisplay,
     allowVoiceOnMobileData:
       s.allowVoiceOnMobileData ?? DEFAULT_SETTINGS.allowVoiceOnMobileData,
     offlineNepaliDownloadAttemptedAt:
@@ -69,6 +71,7 @@ export const useSettingsStore = create<SettingsState>()(
       setNotificationSound: (notificationSound) => set({ notificationSound }),
       setVoiceLanguage: (voiceLanguage) => set({ voiceLanguage }),
       setUiLanguage: (uiLanguage) => set({ uiLanguage }),
+      setCalendarDisplay: (calendarDisplay) => set({ calendarDisplay }),
       setAllowVoiceOnMobileData: (allowVoiceOnMobileData) =>
         set({ allowVoiceOnMobileData }),
       setOfflineNepaliDownloadAttemptedAt: (offlineNepaliDownloadAttemptedAt) =>
@@ -108,6 +111,13 @@ export const useSettingsStore = create<SettingsState>()(
             state.voiceLanguage === 'ne' || state.voiceLanguage === 'new'
               ? 'ne'
               : 'en';
+        }
+        if (
+          state.calendarDisplay !== 'ad' &&
+          state.calendarDisplay !== 'bs' &&
+          state.calendarDisplay !== 'both'
+        ) {
+          state.calendarDisplay = DEFAULT_SETTINGS.calendarDisplay;
         }
         if (state.allowVoiceOnMobileData == null) {
           state.allowVoiceOnMobileData =
@@ -167,6 +177,7 @@ export const useSettingsStore = create<SettingsState>()(
         quietHoursEnabled: state.quietHoursEnabled,
         voiceLanguage: state.voiceLanguage,
         uiLanguage: state.uiLanguage,
+        calendarDisplay: state.calendarDisplay,
         allowVoiceOnMobileData: state.allowVoiceOnMobileData,
         offlineNepaliDownloadAttemptedAt:
           state.offlineNepaliDownloadAttemptedAt,
