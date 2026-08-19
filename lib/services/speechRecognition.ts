@@ -13,6 +13,10 @@ import {
   VoiceLanguageOption,
 } from '@/lib/services/voiceLanguages';
 import { resolveVoiceNetworkAccess } from '@/lib/services/voiceNetwork';
+import {
+  ROMANIZED_NE_STT_CONTEXT,
+  SHARED_STT_CONTEXT,
+} from '@/lib/voice/sttContext';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { VoiceLanguage } from '@/types';
 
@@ -21,58 +25,10 @@ export type SpeechCaptureMode = 'tap' | 'handsFree';
 /** Stop and process after this much silence (Android intent + JS timer). */
 export const SPEECH_PAUSE_MS = 3000;
 
-const SHARED_CONTEXT = [
-  'remind me',
-  'remind me to',
-  'after',
-  'in 2 minutes',
-  'in 5 minutes',
-  'tomorrow',
-  'call',
-  'call mom',
-  'need to call',
-  'याद',
-  'सम्झाउ',
-  'मलाई सम्झाउ',
-  'भोलि',
-  'आज',
-  'बजे',
-  'मिनेट',
-  'मिनेटमा',
-  'पछि',
-  'phone call',
-  'minutes',
-  'minute',
-  'hours',
-];
+const SHARED_CONTEXT = SHARED_STT_CONTEXT;
 
 /** Romanized Nepali phrases Google STT often emits instead of Devanagari. */
-const ROMANIZED_NE = [
-  'malai samjhau',
-  'samjhau',
-  'malai yaad gara',
-  'yaad gara',
-  'bholi',
-  'aaja',
-  'aja',
-  'parsi',
-  'baje',
-  'bihana',
-  'beluka',
-  'minute ma',
-  'minute pachi',
-  'minute pachhi',
-  'min pachi',
-  'min pachhi',
-  'ghanta pachi',
-  'call garnu',
-  'phone garne',
-  'phone gara',
-  'yaad gar',
-  'ausadhi',
-  'doctor',
-  'kharcha',
-];
+const ROMANIZED_NE = ROMANIZED_NE_STT_CONTEXT;
 
 export class TranscriptAccumulator {
   private finals: string[] = [];

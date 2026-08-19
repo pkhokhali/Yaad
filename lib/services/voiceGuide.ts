@@ -22,9 +22,10 @@ const PROMPTS: Record<VoiceLanguage, PromptSet> = {
       expense: 'Expense — go ahead.',
     },
     capture: {
-      todo: 'What needs doing?',
-      reminder: 'What should I remind you about? Say when, if you know.',
-      expense: 'How much was it, and what for?',
+      todo: 'What needs doing? Lists work: "buy eggs, milk, and bread".',
+      reminder:
+        'What & when? e.g. "call mom tomorrow at 6 in the evening".',
+      expense: 'Amount first: "spent 200 rupees today" or "500 rs lunch".',
     },
     labels: {
       todo: 'To-do',
@@ -42,9 +43,9 @@ const PROMPTS: Record<VoiceLanguage, PromptSet> = {
       expense: 'खर्च — अब भन्नुहोस्।',
     },
     capture: {
-      todo: 'के गर्नुपर्छ?',
-      reminder: 'के सम्झाउने? समय भए भन्नुहोस्।',
-      expense: 'कति रु, र के लागि?',
+      todo: 'के गर्नुपर्छ? सूची: "अण्डा, दूध, पाउरोटी किन्नु".',
+      reminder: 'के र कहिले? जस्तै "आमा लाई भोलि बेलुका ६ बजे फोन।"',
+      expense: 'पहिले रकम: "२०० रु खर्च" वा "५०० रु खाना"।',
     },
     labels: {
       todo: 'टु-डु',
@@ -62,9 +63,9 @@ const PROMPTS: Record<VoiceLanguage, PromptSet> = {
       expense: 'खर्च — अब च्वनाः।',
     },
     capture: {
-      todo: 'का ग्वः?',
-      reminder: 'का याद द्यः? समय भए च्वनाः।',
-      expense: 'कति रु, र का लागि?',
+      todo: 'का ग्वः? सूची: "अण्डा, दूध, पाउरोटी किने"।',
+      reminder: 'का याद द्यः? जस्तै "आमा लाई भोलि बेलुका ६ बजे फोन"।',
+      expense: 'पहिले रकम: "२०० रु खर्च" वा "५०० रु खाना"।',
     },
     labels: {
       todo: 'टु-डु',

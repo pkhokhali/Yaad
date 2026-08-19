@@ -1,3 +1,4 @@
+import { formatCallTargetTitle } from '@/lib/voice/titleCleanup';
 import { Category, VoiceLanguage } from '@/types';
 
 const ACTION_VERB: Record<Category, { en: string; ne: string }> = {
@@ -31,9 +32,12 @@ export function formatActionTitle(
     if (!/^\s*call\b/i.test(t) && !/^\s*कल\b/u.test(t)) {
       t = `Call ${t}`;
     }
+    t = formatCallTargetTitle(t);
+  } else {
+    t = t.charAt(0).toUpperCase() + t.slice(1);
   }
 
-  return t.charAt(0).toUpperCase() + t.slice(1);
+  return t;
 }
 
 export function formatNotificationBody(

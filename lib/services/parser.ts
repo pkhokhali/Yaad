@@ -6,6 +6,12 @@ import { suggestCategory, suggestsDailyRepeat } from '@/lib/services/categorize'
 import { listRecentReminders } from '@/lib/db/reminders';
 import { ParsedCapture, Reminder } from '@/types';
 import { splitListItems, toChecklistItems } from '@/lib/parse/listItems';
+import {
+  categoryForUtterance,
+  looksLikeShoppingList,
+  titleForShoppingList,
+} from '@/lib/voice/listCapture';
+import { stripTrailingTimeWords } from '@/lib/voice/titleCleanup';
 
 const PREFIX =
   /^(remind me to|remind me|remember to|don't forget to|dont forget to|need to|yaad gara|yaad gar|yaad|याद गर|याद|मलाई सम्झाउ|मलाई याद गर|सम्झाउ|सम्झनु|नबिर्स|न बिर्स|लुमंके|लुमनं|malai samjhau|malai yaad gara|samjhau)\s+/iu;
@@ -302,6 +308,8 @@ function cleanTitle(text: string, dueAt: Date): string {
     .replace(/^[\s,.-]+|[\s,.-]+$/g, '')
     .trim();
 
+  title = stripTrailingTimeWords(title);
+
   if (!title) {
     title = normalizeReminderTitle(text.replace(PREFIX, '').trim()) || 'Reminder';
   }
@@ -398,9 +406,17 @@ export async function parseCaptureText(
     title = referenced.title;
   }
 
-  const category = suggestCategory(text) || referenced?.category || 'general';
+  const listLabels = splitListItems(text);
+  if (listLabels && listLabels.length >= 2) {
+    title = titleForShoppingList(listLabels);
+  }
+
+  const category = categoryForUtterance(
+    text,
+    suggestCategory(text) || referenced?.category || 'general',
+  );
   const repeatDaily = suggestsDailyRepeat(text, category);
-  const items = toChecklistItems(splitListItems(text));
+  const items = toChecklistItems(listLabels);
 
   return {
     title: formatActionTitle(title, category),
@@ -412,6 +428,10 @@ export async function parseCaptureText(
     confident:
       title.trim().length >= 3 &&
       title.trim().toLowerCase() !== 'reminder' &&
-      (local.matched || Boolean(chronoDate) || repeatDaily || Boolean(items?.length)),
+      (local.matched ||
+        Boolean(chronoDate) ||
+        repeatDaily ||
+        Boolean(items?.length) ||
+        looksLikeShoppingList(text)),
   };
 }
